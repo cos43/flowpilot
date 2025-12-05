@@ -60,3 +60,49 @@ export function resolveChatModel(
         model: client.chat(runtime.modelId),
     };
 }
+
+export const isLinkflowEndpoint = (baseUrl?: string): boolean =>
+    typeof baseUrl === "string" && baseUrl.toLowerCase().includes("linkflow");
+
+export const LINKFLOW_DEFAULT_MAX_OUTPUT_TOKENS = 64000;
+
+export const getLinkflowOverrides = (baseUrl?: string) =>
+    isLinkflowEndpoint(baseUrl)
+        ? { maxOutputTokens: LINKFLOW_DEFAULT_MAX_OUTPUT_TOKENS }
+        : {};
+
+export function applyLinkflowSystemWorkaround<TMessage extends { role: string; content: any }>({
+    baseUrl,
+    system,
+    messages,
+    prompt,
+}: {
+    baseUrl?: string;
+    system?: string;
+    messages?: TMessage[];
+    prompt?: string;
+}): { system?: string; messages?: TMessage[]; prompt?: string } {
+    if (!isLinkflowEndpoint(baseUrl) || !system) {
+        return { system, messages, prompt };
+    }
+
+    const systemInstruction = `System instructions (treat as system-level, do not echo):\n${system.trim()}`;
+    const systemAsUser = {
+        role: "user",
+        content: [{ type: "text", text: systemInstruction }],
+    } as TMessage;
+
+    if (messages && messages.length > 0) {
+        return {
+            system: undefined,
+            messages: [systemAsUser, ...messages],
+            prompt,
+        };
+    }
+
+    return {
+        system: undefined,
+        messages,
+        prompt: prompt ? `${systemInstruction}\n\n${prompt}` : systemInstruction,
+    };
+}

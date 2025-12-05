@@ -2,10 +2,12 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {FaGithub} from "react-icons/fa";
+import Link from "next/link";
 import {
     AlertCircle,
     CheckCircle2,
     Copy,
+    FileText,
     Handshake,
     ListMinus,
     ListPlus,
@@ -17,6 +19,7 @@ import {
     MessageSquare,
     History,
     Settings,
+    Info,
 } from "lucide-react";
 import {
     Card,
@@ -40,7 +43,7 @@ import {ChatMessageDisplay} from "./chat-message-display-optimized";
 import {useDiagram} from "@/contexts/diagram-context";
 import {useConversationManager} from "@/contexts/conversation-context";
 import {useSvgEditor} from "@/contexts/svg-editor-context";
-import {cn, formatXML, replaceXMLParts, convertToLegalXml} from "@/lib/utils";
+import {cn, formatXML, replaceXMLParts, convertToLegalXml, replaceNodes} from "@/lib/utils";
 import {buildSvgRootXml, repairSvg, svgToDataUrl} from "@/lib/svg";
 import {SessionStatus} from "@/components/session-status";
 import {QuickActionBar} from "@/components/quick-action-bar";
@@ -101,6 +104,7 @@ export default function ChatPanelOptimized({
                                            }: ChatPanelProps) {
     const {
         loadDiagram: onDisplayChart,
+        loadDiagramImmediate,
         chartXML,
         clearDiagram,
         diagramHistory: mxDiagramHistory,
@@ -152,7 +156,7 @@ export default function ChatPanelOptimized({
         updateActiveBranchDiagram,
         resetActiveBranch,
     } = useConversationManager();
-    const {handleDiagramXml, tryApplyRoot, updateLatestDiagramXml, getLatestDiagramXml} =
+    const {handleDiagramXml, tryApplyRoot, applyRootPatch, updateLatestDiagramXml, getLatestDiagramXml} =
         useDiagramOrchestrator({
             chartXML,
             onDisplayChart,
@@ -193,6 +197,8 @@ export default function ChatPanelOptimized({
     const lastPreviewLengthRef = useRef<number>(0);
     const lastPreviewAtRef = useRef<number>(0);
     const idleCallbackIdRef = useRef<number | null>(null);
+    // draw.io 流式去重，尽量减少 reload
+    const lastDrawioAppliedRef = useRef<string | null>(null);
 
     const normalizeStreamingSvg = useCallback((raw: string): string | null => {
         if (!raw || !raw.includes("<svg")) return null;
@@ -1181,10 +1187,28 @@ export default function ChatPanelOptimized({
         }
     }, [handleStopAll, setMessages, resetActiveBranch, isSvgMode, loadSvgMarkup, clearSvg, handleDiagramXml, clearDiagram, clearConversation, updateActiveBranchMessages, updateActiveBranchDiagram]);
 
-    const toggleToolPanel = (panel: ToolPanel) => {
+    const toggleToolPanel = async (panel: ToolPanel) => {
         if (panel === 'converter') {
             setIsSmartSvgConverterOpen(true);
             return;
+        }
+
+        if (panel === 'starter') {
+            // 新建对话动作：保存历史（如有）并重置，同时关闭侧边栏
+            if (messages.length > 0) {
+                await handleStartNewConversation();
+            } else {
+                // 如果已经是空对话，也尝试清理一下可能存在的草稿状态
+                handleClearChat();
+            }
+            // 确保侧边栏关闭，不打扰用户
+            setActiveToolPanel(null);
+            setIsToolSidebarOpen(false);
+            return;
+        }
+
+        if (panel === 'actions') {
+            setCommandTab('templates');
         }
         setActiveToolPanel((current) => {
             const next = current === panel ? null : panel;
@@ -1319,7 +1343,10 @@ export default function ChatPanelOptimized({
                         className="inline-flex items-center rounded-full bg-slate-100 p-1 overflow-x-auto scrollbar-hide">
                         <button
                             type="button"
-                            onClick={() => setCommandTab("templates")}
+                            onClick={() => {
+                                setCommandTab("templates");
+                                setActiveToolPanel("actions");
+                            }}
                             className={cn(
                                 "rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition",
                                 commandTab === "templates"
@@ -1331,7 +1358,10 @@ export default function ChatPanelOptimized({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setCommandTab("starter")}
+                            onClick={() => {
+                                setCommandTab("starter");
+                                setActiveToolPanel("starter");
+                            }}
                             className={cn(
                                 "rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition",
                                 commandTab === "starter"
@@ -1429,6 +1459,15 @@ export default function ChatPanelOptimized({
                                     </button>
                                 );
                             })}
+                            <button
+                                type="button"
+                                onClick={handleShowConversationHistory}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-slate-700 transition-all duration-200 hover:bg-white/40 active:scale-95"
+                                title="历史记录"
+                            >
+                                <History className="h-3.5 w-3.5"/>
+                                <span className="leading-none">历史记录</span>
+                            </button>
                         </div>
                         <div className="flex items-center gap-2">
                             <DropdownMenu>
@@ -1443,13 +1482,18 @@ export default function ChatPanelOptimized({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-52">
                                     <DropdownMenuLabel>工具</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setCommandTab("templates");
+                                            toggleToolPanel("actions");
+                                        }}
+                                    >
+                                        <FileText className="mr-2 h-4 w-4"/>
+                                        模板库
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => toggleToolPanel("brief")}>
                                         <Sparkles className="mr-2 h-4 w-4"/>
                                         配置（Brief）
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => toggleToolPanel("actions")}>
-                                        <MessageSquare className="mr-2 h-4 w-4"/>
-                                        模板
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleOpenSvgConvert}>
                                         <Sparkles className="mr-2 h-4 w-4"/>
@@ -1470,6 +1514,16 @@ export default function ChatPanelOptimized({
                                         对比配置
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator/>
+                                    <DropdownMenuLabel>帮助</DropdownMenuLabel>
+                                    <DropdownMenuItem asChild>
+                                        <Link
+                                            href="/about"
+                                            className="flex items-center"
+                                        >
+                                            <Info className="mr-2 h-4 w-4"/>
+                                            关于
+                                        </Link>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                         onClick={() => {
                                             setContactCopyState("idle");
@@ -1545,8 +1599,8 @@ export default function ChatPanelOptimized({
                                 </div>
                             )}
                             <div
-                                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-xl  bg-white px-2.5 py-2 pb-28"
-                                style={{maxHeight: '100%'}}
+                                className="py-2 flex-1 min-h-0 max-h-[65vh] overflow-y-auto overflow-x-hidden rounded-xl bg-white px-2.5"
+                                style={{maxHeight: '80vh'}}
                             >
                                 <ChatMessageDisplay
                                     messages={messages}
@@ -1554,8 +1608,8 @@ export default function ChatPanelOptimized({
                                     setInput={setInput}
                                     setFiles={handleFileChange}
                                     activeBranchId={activeBranchId}
-                                    onDisplayDiagram={(xml, { isFinal, mode } = {}) => {
-                                        const targetMode: DiagramRenderingMode = mode === "svg" ? "svg" : (isSvgMode ? "svg" : "drawio");
+                                    onDisplayDiagram={async (xml, { isFinal, mode, toolCallId } = {}) => {
+                                        const targetMode: DiagramRenderingMode = mode ?? (isSvgMode ? "svg" : "drawio");
 
                                         if (targetMode === "svg") {
                                             const fixed = repairSvg(xml);
@@ -1585,12 +1639,53 @@ export default function ChatPanelOptimized({
                                                 skipOptimization: true
                                             });
                                             updateActiveBranchDiagram(fixed);
+                                            const resultId = toolCallId || `svg-${Date.now()}`;
+                                            diagramResultsRef.current.set(resultId, {
+                                                xml: fixed,
+                                                svg: fixed,
+                                                mode: "svg",
+                                                runtime: selectedModel ?? undefined,
+                                            });
+                                            setDiagramResultVersion((prev) => prev + 1);
                                             return;
                                         }
-                                        handleDiagramXml(xml, {
-                                            origin: "display",
-                                            modelRuntime: selectedModel ?? undefined,
-                                        });
+
+                                        // draw.io 流式预览：合法化 + 局部替换 + 去重，减少 reload 闪屏
+                                        try {
+                                            if (isFinal === false) {
+                                                let merged: string | null = null;
+                                                try {
+                                                    const safeRoot = convertToLegalXml(xml);
+                                                    const baseXml = getLatestDiagramXml() || EMPTY_MXFILE;
+                                                    merged = replaceNodes(baseXml, safeRoot);
+                                                } catch (err) {
+                                                    console.warn("Draw.io streaming normalize failed:", err);
+                                                    merged = null;
+                                                }
+                                                if (!merged || merged === lastDrawioAppliedRef.current) return;
+                                                lastDrawioAppliedRef.current = merged;
+                                                loadDiagramImmediate(merged);
+                                                return;
+                                            }
+                                            // 最终态：再合法化一次并去重，确保画布落到最终结果
+                                            try {
+                                                const safeRoot = convertToLegalXml(xml);
+                                                const baseXml = getLatestDiagramXml() || EMPTY_MXFILE;
+                                                const merged = replaceNodes(baseXml, safeRoot);
+                                                if (merged && merged !== lastDrawioAppliedRef.current) {
+                                                    lastDrawioAppliedRef.current = merged;
+                                                    loadDiagramImmediate(merged);
+                                                }
+                                            } catch (err) {
+                                                console.warn("Draw.io final normalize failed:", err);
+                                            }
+                                            await handleDiagramXml(xml, {
+                                                origin: "display",
+                                                modelRuntime: selectedModel ?? undefined,
+                                            });
+                                        } catch (e) {
+                                            console.warn("Draw.io streaming apply failed:", e);
+                                        }
                                     }}
                                     onComparisonApply={(result) => {
                                         void handleApplyComparisonResult(result);

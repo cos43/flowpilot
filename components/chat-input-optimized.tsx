@@ -3,18 +3,7 @@
 import React, { useCallback, useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ResetWarningModal } from "@/components/reset-warning-modal";
-import {
-    Loader2,
-    Send,
-    RotateCcw,
-    History,
-    Settings,
-    Square,
-    LayoutGrid,
-    Sparkles,
-} from "lucide-react";
-import { ButtonWithTooltip } from "@/components/button-with-tooltip";
+import { Send, Square } from "lucide-react";
 import { FilePreviewList } from "@/components/file-preview-list";
 import { HistoryDialog } from "@/components/history-dialog";
 import { ModelSelector } from "@/components/model-selector";
@@ -91,11 +80,11 @@ export function ChatInputOptimized({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const controlBarRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [showClearDialog, setShowClearDialog] = useState(false);
     const [isRenderModeIconOnly, setIsRenderModeIconOnly] = useState(false);
     const [shouldHideModelSelector, setShouldHideModelSelector] = useState(false);
 
     const MAX_VISIBLE_LINES = 5;
+    const MAX_TEXTAREA_HEIGHT_PX = 160;
     const RENDER_MODE_ICON_BREAKPOINT = 460;
     const MODEL_SELECTOR_HIDE_BREAKPOINT = 400;
 
@@ -106,9 +95,10 @@ export function ChatInputOptimized({
             const lineHeight =
                 parseFloat(window.getComputedStyle(textarea).lineHeight || "24") ||
                 24;
-            const maxHeight = lineHeight * MAX_VISIBLE_LINES;
+            const maxHeight = Math.min(lineHeight * MAX_VISIBLE_LINES, MAX_TEXTAREA_HEIGHT_PX);
             textarea.style.height = "auto";
             textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+            textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
         }
     }, []);
 
@@ -220,12 +210,6 @@ export function ChatInputOptimized({
         }
     };
 
-    // Handle clearing conversation and diagram
-    const handleClear = () => {
-        onClearChat();
-        setShowClearDialog(false);
-    };
-
     // 监听底部工具栏宽度，窄屏时收起文字与模型选择
     useEffect(() => {
         const container = controlBarRef.current;
@@ -254,6 +238,9 @@ export function ChatInputOptimized({
         resizeObserver.observe(container);
         return () => resizeObserver.disconnect();
     }, []);
+
+    const showStopButton =
+        (status === "streaming" || isBusy) && typeof onStop === "function";
 
     return (
         <form
@@ -301,7 +288,7 @@ export function ChatInputOptimized({
                         placeholder="描述你想让流程图如何调整，支持拖拽或粘贴图片作为参考素材"
                         disabled={status === "streaming"}
                         aria-label="聊天输入框"
-                        className="h-auto min-h-[48px] resize-none border-0 !border-none bg-transparent p-0 text-sm leading-5 text-slate-900 outline-none shadow-none focus-visible:border-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:!border-none focus-visible:!outline-none focus-visible:shadow-none"
+                        className="h-auto min-h-[48px] max-h-[160px] resize-none border-0 !border-none bg-transparent p-0 text-sm leading-5 text-slate-900 outline-none shadow-none focus-visible:border-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:!border-none focus-visible:!outline-none focus-visible:shadow-none overflow-y-auto"
                     />
                 </div>
 
@@ -310,18 +297,18 @@ export function ChatInputOptimized({
                     className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1"
                 >
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <ButtonWithTooltip
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-[28px] w-[28px] rounded-full text-slate-600 hover:bg-white/40 transition-all active:scale-95"
-                            onClick={() => setShowClearDialog(true)}
-                            tooltipContent="清空当前对话与图表"
-                            disabled={status === "streaming"}
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                        </ButtonWithTooltip>
+                        <ModelSelector
+                            selectedModelKey={selectedModelKey}
+                            onModelChange={onModelChange}
+                            models={modelOptions}
+                            onManage={onManageModels}
+                            disabled={status === "streaming" || interactionLocked}
+                            onModelStreamingChange={onModelStreamingChange}
+                            compact
+                        />
+                    </div>
 
+                    <div className="flex items-center gap-1.5">
                         {comparisonEnabled && (
                             <ComparisonQuickAccess
                                 disabled={
@@ -335,33 +322,32 @@ export function ChatInputOptimized({
                                 compact={false}
                             />
                         )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                        {!shouldHideModelSelector && (
-                            <ModelSelector
-                                selectedModelKey={selectedModelKey}
-                                onModelChange={onModelChange}
-                                models={modelOptions}
-                                onManage={onManageModels}
-                                disabled={status === "streaming" || interactionLocked}
-                                onModelStreamingChange={onModelStreamingChange}
-                                compact
-                            />
-                        )}
                         <Button
-                            type="submit"
+                            type={showStopButton ? "button" : "submit"}
+                            onClick={showStopButton ? onStop : undefined}
                             disabled={
-                                status === "streaming" ||
-                                !input.trim() ||
-                                interactionLocked
+                                showStopButton
+                                    ? false
+                                    : status === "streaming" ||
+                                    !input.trim() ||
+                                    interactionLocked
                             }
-                            className="h-[28px] min-w-[70px] gap-2 rounded-full bg-slate-900 text-white text-[11px] font-medium shadow-[0_2px_8px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+                            className={cn(
+                                "h-[28px] rounded-full text-[11px] font-medium shadow-[0_2px_8px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.15)] transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100",
+                                showStopButton
+                                    ? "min-w-[32px] gap-1.5 border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                    : "w-[32px] justify-center bg-slate-900 text-white hover:bg-slate-800"
+                            )}
                             size="sm"
-                            aria-label="发送消息"
+                            aria-label={showStopButton ? "终止对话" : "发送消息"}
                         >
-                            <Send className="h-4 w-4" />
-                            发送
+                            {showStopButton ? (
+                                <>
+                                    <Square className="h-3.5 w-3.5" />
+                                </>
+                            ) : (
+                                <Send className="h-3.5 w-3.5" />
+                            )}
                         </Button>
                     </div>
                 </div>
@@ -375,12 +361,6 @@ export function ChatInputOptimized({
                 accept="image/*"
                 multiple
                 disabled={status === "streaming" || interactionLocked}
-            />
-
-            <ResetWarningModal
-                open={showClearDialog}
-                onOpenChange={setShowClearDialog}
-                onClear={handleClear}
             />
 
             {/* 原有的图表版本历史对话框 */}

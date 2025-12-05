@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { EMPTY_MXFILE } from "@/lib/diagram-templates";
 import { ensureRootXml, mergeRootXml } from "@/lib/utils";
+import { mergeRootPatch } from "@/lib/drawio/mergeRootPatch";
 import type { RuntimeErrorPayload } from "@/types/diagram";
 import type { DiagramUpdateMeta } from "../types";
 
@@ -46,6 +47,18 @@ export function useDiagramOrchestrator({
         [applyRootToCanvas]
     );
 
+    const applyRootPatch = useCallback(
+        (patchRoot: string) => {
+            const baseXml = latestDiagramXmlRef.current || chartXML || EMPTY_MXFILE;
+            const merged = mergeRootPatch(baseXml, patchRoot);
+            latestDiagramXmlRef.current = merged;
+            onDisplayChart(merged);
+            updateActiveBranchDiagram(merged);
+            return merged;
+        },
+        [chartXML, onDisplayChart, updateActiveBranchDiagram]
+    );
+
     const handleDiagramXml = useCallback(
         async (xml: string, _meta: DiagramUpdateMeta) => {
             await tryApplyRoot(xml);
@@ -64,6 +77,7 @@ export function useDiagramOrchestrator({
     return {
         handleDiagramXml,
         tryApplyRoot,
+        applyRootPatch,
         updateLatestDiagramXml,
         getLatestDiagramXml,
     };

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { UIMessage } from "ai";
 import { ComparisonHistoryEntry } from "@/types/comparison";
+import { TokenUsageDisplay } from "./token-usage-display";
 
 interface MessageItemProps {
     message: UIMessage;
@@ -20,7 +21,7 @@ interface MessageItemProps {
     renderToolPart: (part: any, metadata?: any) => React.ReactNode;
     renderComparisonEntry: (entry: ComparisonHistoryEntry, keyBase: string) => React.ReactNode;
     onCopyMessage: (messageId: string, text: string) => void;
-    onToggleExpanded: (messageId: string) => void;
+    onToggleExpanded: (messageId: string, currentExpanded: boolean) => void;
     onMessageRevert?: (payload: { messageId: string; text: string }) => void;
 }
 
@@ -43,6 +44,9 @@ export const MessageItem = memo(({
 }: MessageItemProps) => {
     const shouldCollapse = fullMessageText.length > 500;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const messageMetadata = (message as any)?.metadata || {};
+    const usageInfo = messageMetadata?.usage;
+    const durationMs = messageMetadata?.durationMs as number | undefined;
 
     return (
         <div className="mb-5 flex flex-col gap-2">
@@ -53,11 +57,11 @@ export const MessageItem = memo(({
                         isUser ? "justify-end" : "justify-start"
                     )}
                 >
-                    <div className="relative max-w-[min(520px,80%)] group">
+                    <div className="relative max-w-[min(480px,80%)] group">
                         <div
                             className={cn(
                                 "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                                "whitespace-pre-wrap break-words",
+                                "whitespace-pre-wrap break-all",
                                 isUser
                                     ? "bg-slate-900 text-white shadow-[0_2px_8px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.15)]"
                                     : "backdrop-blur-xl bg-white/60 border border-white/40 text-slate-900 shadow-[0_8px_32px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.4)]",
@@ -70,7 +74,7 @@ export const MessageItem = memo(({
                                         const textToShow =
                                             part.displayText ?? part.text ?? "";
                                         return (
-                                            <div key={index} className="mb-1 last:mb-0">
+                                            <div key={index} className="mb-1 last:mb-0 whitespace-pre-wrap break-all">
                                                 {textToShow}
                                             </div>
                                         );
@@ -206,10 +210,10 @@ export const MessageItem = memo(({
                                 )}
                             </button>
 
-                            {shouldCollapse && (
+                                    {shouldCollapse && (
                                 <button
                                     type="button"
-                                    onClick={() => onToggleExpanded(message.id)}
+                                            onClick={() => onToggleExpanded(message.id, isExpanded)}
                                     className={cn(
                                         "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all backdrop-blur-xl",
                                         isUser
@@ -269,6 +273,20 @@ export const MessageItem = memo(({
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {!isUser && (usageInfo || durationMs !== undefined) && (
+                <div
+                    className={cn(
+                        "mt-1.5 flex",
+                        "justify-start"
+                    )}
+                >
+                    <TokenUsageDisplay
+                        usage={usageInfo}
+                        durationMs={durationMs}
+                        compact
+                    />
                 </div>
             )}
             {toolParts.map((part: any) => (

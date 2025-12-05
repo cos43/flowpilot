@@ -65,45 +65,46 @@ export function SvgPreviewPane() {
 
     return (
         <div className="relative flex h-full w-full flex-col rounded-xl bg-white">
-            <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 shadow-sm">
+            <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm">
                 <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-indigo-700"
+                    className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
                     onClick={() => {
                         window.dispatchEvent(new CustomEvent("flowpilot:convert-svg"));
                     }}
                 >
                     转绘为 draw.io 可编辑
                 </button>
-            </div>
-            <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-2 py-1 shadow-sm">
-                <button
-                    type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-50"
-                    onClick={() => handleZoom(-0.15)}
-                    aria-label="缩小"
-                >
-                    <ZoomOut className="h-4 w-4" />
-                </button>
-                <span className="min-w-[52px] text-center text-[11px] font-semibold text-slate-600">
-                    {(userScale * baseScale * 100).toFixed(0)}%
-                </span>
-                <button
-                    type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-50"
-                    onClick={() => handleZoom(0.15)}
-                    aria-label="放大"
-                >
-                    <ZoomIn className="h-4 w-4" />
-                </button>
-                <button
-                    type="button"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-50"
-                    onClick={() => setUserScale(1)}
-                    aria-label="重置"
-                >
-                    <Maximize2 className="h-4 w-4" />
-                </button>
+                <div className="h-5 w-px bg-slate-300"></div>
+                <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+                        onClick={() => handleZoom(-0.15)}
+                        aria-label="缩小"
+                    >
+                        <ZoomOut className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-[52px] text-center text-[11px] font-semibold text-slate-600">
+                        {(userScale * baseScale * 100).toFixed(0)}%
+                    </span>
+                    <button
+                        type="button"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+                        onClick={() => handleZoom(0.15)}
+                        aria-label="放大"
+                    >
+                        <ZoomIn className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+                        onClick={() => setUserScale(1)}
+                        aria-label="重置"
+                    >
+                        <Maximize2 className="h-4 w-4" />
+                    </button>
+                </div>
             </div>
 
             <div

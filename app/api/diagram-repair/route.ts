@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { resolveChatModel } from "@/lib/server-models";
+import { applyLinkflowSystemWorkaround, getLinkflowOverrides, resolveChatModel } from "@/lib/server-models";
 
 const systemPrompt = `You are FlowPilot Diagram Repair, a specialist that only fixes malformed draw.io XML.
 You must respond with a single JSON object and nothing else. Do NOT include code fences, markdown, or raw XML outside the JSON string fields.
@@ -115,16 +115,27 @@ export async function POST(req: Request) {
 
         const resolved = resolveChatModel(modelRuntime);
         const userPrompt = buildUserPrompt({ invalidXml, currentXml, errorContext });
+        const baseMessages = [
+            {
+                role: "user" as const,
+                content: [{ type: "text" as const, text: userPrompt }],
+            },
+        ];
+        const {
+            system: systemForModel,
+            messages: messagesForModel,
+        } = applyLinkflowSystemWorkaround({
+            baseUrl: modelRuntime.baseUrl,
+            system: systemPrompt,
+            messages: baseMessages,
+        });
+        const linkflowOverrides = getLinkflowOverrides(modelRuntime.baseUrl);
         const response = await generateText({
             model: resolved.model,
-            system: systemPrompt,
-            messages: [
-                {
-                    role: "user",
-                    content: [{ type: "text", text: userPrompt }],
-                },
-            ],
+            ...(systemForModel ? { system: systemForModel } : {}),
+            messages: messagesForModel ?? baseMessages,
             temperature: 0,
+            ...linkflowOverrides,
         });
 
         const payload = parseJsonBlock(response.text);

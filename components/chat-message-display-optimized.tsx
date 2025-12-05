@@ -21,6 +21,13 @@ const CHAR_COUNT_FORMATTER = new Intl.NumberFormat("zh-CN");
 // 智能图表生成超时检测时间（毫秒）- 5分钟
 const DIAGRAM_GENERATION_TIMEOUT_MS = 300000;
 
+function stripThink(text: string): string {
+    if (!text) return "";
+    let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    cleaned = cleaned.replace(/<\/?think>/gi, "");
+    return cleaned.trim();
+}
+
 interface ChatMessageDisplayProps {
     messages: UIMessage[];
     error?: Error | null;
@@ -30,6 +37,13 @@ interface ChatMessageDisplayProps {
         xml: string,
         meta: { toolCallId?: string; isFinal?: boolean; mode?: "drawio" | "svg" }
     ) => void | Promise<void>;
+    onStreamingText?: (payload: {
+        raw: string;
+        clean: string;
+        svg?: string | null;
+        messageId?: string;
+        isFinal: boolean;
+    }) => void;
     onComparisonApply?: (result: ComparisonCardResult) => void;
     onComparisonCopyXml?: (xml: string) => void;
     onComparisonDownload?: (result: ComparisonCardResult) => void;
@@ -400,6 +414,7 @@ export function ChatMessageDisplay({
     setInput,
     setFiles,
     onDisplayDiagram,
+    onStreamingText,
     onComparisonApply,
     onComparisonCopyXml,
     onComparisonDownload,
@@ -420,11 +435,17 @@ export function ChatMessageDisplay({
     getDiagramResult,
 }: ChatMessageDisplayProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLElement | null>(null);
     const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
     const [expandedMessages, setExpandedMessages] = useState<Record<string, boolean>>({});
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
     const [generationElapsedTime, setGenerationElapsedTime] = useState(0);
     const generationStartTimeRef = useRef<number | null>(null);
+    const appliedTextSvgMessageIdsRef = useRef<Set<string>>(new Set());
+    const textSvgCacheRef = useRef<Map<string, string>>(new Map());
+    const appliedTextDrawioMessageIdsRef = useRef<Set<string>>(new Set());
+    const textDrawioCacheRef = useRef<Map<string, string>>(new Map());
+    const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
     // 流式渲染回调
     const handleStreamingApply = useCallback((content: string, toolCallId: string, mode: "drawio" | "svg" = "drawio") => {
@@ -445,6 +466,33 @@ export function ChatMessageDisplay({
             });
         }
     }, [onDisplayDiagram]);
+
+    // 识别滚动容器，并在用户上滑时暂停自动滚动
+    useEffect(() => {
+        if (!messagesEndRef.current) return;
+        let parent = messagesEndRef.current.parentElement;
+        let scrollable: HTMLElement | null = null;
+        while (parent) {
+            const style = window.getComputedStyle(parent);
+            if (style.overflowY === "auto" || style.overflowY === "scroll") {
+                scrollable = parent as HTMLElement;
+                break;
+            }
+            parent = parent.parentElement;
+        }
+        if (!scrollable) return;
+        scrollContainerRef.current = scrollable;
+
+        const handleScroll = () => {
+            const { scrollTop, clientHeight, scrollHeight } = scrollable;
+            const atBottom = scrollTop + clientHeight >= scrollHeight - 120;
+            setAutoScrollEnabled(atBottom);
+        };
+
+        handleScroll(); // 初始化一次
+        scrollable.addEventListener("scroll", handleScroll, { passive: true });
+        return () => scrollable.removeEventListener("scroll", handleScroll);
+    }, []);
 
     // 监听生成状态，更新耗时计时器
     useEffect(() => {
@@ -514,24 +562,212 @@ export function ChatMessageDisplay({
     }, []);
 
     useEffect(() => {
-        if (messagesEndRef.current) {
-            // Manually find the scrollable container to avoid window scrolling
-            let parent = messagesEndRef.current.parentElement;
+        if (!autoScrollEnabled || !messagesEndRef.current) return;
+
+        // Manually find the scrollable container to avoid window scrolling
+        let parent: HTMLElement | null = scrollContainerRef.current;
+
+        if (!parent) {
+            parent = messagesEndRef.current.parentElement as HTMLElement | null;
             while (parent) {
                 const style = window.getComputedStyle(parent);
                 if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-                    parent.scrollTo({
-                        top: parent.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                    return;
+                    break;
                 }
-                parent = parent.parentElement;
+                parent = parent.parentElement as HTMLElement | null;
             }
-            // Fallback
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
-    }, [messages]);
+
+        if (parent) {
+            parent.scrollTo({
+                top: parent.scrollHeight,
+                behavior: 'smooth'
+            });
+            return;
+        }
+
+        // Fallback
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, [messages, autoScrollEnabled]);
+
+    // 当后端禁用工具（如 linkflow），但模型直接在文本中输出 SVG / Draw.io XML 时，尝试自动抓取并应用
+    useEffect(() => {
+        if (typeof onDisplayDiagram !== "function") return;
+        // 找到最新的 assistant 消息
+        const reversed = [...messages].reverse();
+        for (const msg of reversed) {
+            if (msg.role !== "assistant" || !msg.id) continue;
+            const hasToolPart = msg.parts?.some((part: any) => typeof part?.type === "string" && part.type.startsWith("tool-"));
+            if (hasToolPart) continue;
+            const textParts = (msg.parts || []).filter((part: any) => part?.type === "text");
+            const rawOriginal = textParts.map((p: any) => (p.text ?? p.displayText ?? "")).join("\n");
+            const raw = stripThink(rawOriginal);
+            if (!rawOriginal || typeof rawOriginal !== "string") continue;
+
+            // 先尝试解析 Draw.io（mxGraph）内容
+            const extractDrawioPayload = (text: string) => {
+                // 围栏块（```drawio/```xml）
+                const fenced = text.match(/```(?:drawio|xml)?[\t ]*\n?([\s\S]*?)```/i);
+                if (fenced?.[1]) {
+                    return fenced[1];
+                }
+                const fencedStart = text.match(/```(?:drawio|xml)?[\t ]*\n?/i);
+                if (fencedStart) {
+                    const startIdx = (fencedStart.index ?? 0) + fencedStart[0].length;
+                    const rest = text.slice(startIdx);
+                    const earlyCloseIdx = rest.indexOf("```");
+                    return earlyCloseIdx >= 0 ? rest.slice(0, earlyCloseIdx) : rest;
+                }
+
+                // 内联块
+                const inline =
+                    text.match(/<mxfile[\s\S]*?(<\/mxfile>|$)/i)?.[0] ||
+                    text.match(/<mxGraphModel[\s\S]*?(<\/mxGraphModel>|$)/i)?.[0] ||
+                    text.match(/<root[\s\S]*?(<\/root>|$)/i)?.[0];
+                return inline || null;
+            };
+
+            const normalizeDrawioRoot = (payload: string | null): string | null => {
+                if (!payload) return null;
+                const trimmed = payload.trim();
+                if (!trimmed) return null;
+
+                // 优先提取 <root> ... </root>
+                const rootMatch = trimmed.match(/<root[\s\S]*?(<\/root>|$)/i);
+                if (rootMatch?.[0]) {
+                    let root = rootMatch[0];
+                    if (!/<\/root>/i.test(root)) {
+                        root += "</root>";
+                    }
+                    return root;
+                }
+
+                // 回退：提取所有 mxCell，构造最小可用 root
+                const cellMatches = trimmed.match(/<mxCell\b[\s\S]*?(?:\/>|<\/mxCell>)/gi);
+                if (cellMatches && cellMatches.length > 0) {
+                    return `<root>${cellMatches.join("\n")}</root>`;
+                }
+                return null;
+            };
+
+            const buildSafeDrawioXml = (content: string | null): string | null => {
+                if (!content) return null;
+                const trimmed = content.trim();
+                if (!trimmed) return null;
+
+                // 提取 root 内部
+                let inner = trimmed;
+                const rootMatch = trimmed.match(/<root[\s\S]*?<\/root>/i);
+                if (rootMatch?.[0]) {
+                    inner = rootMatch[0]
+                        .replace(/^<root[^>]*>/i, "")
+                        .replace(/<\/root>/i, "");
+                }
+
+                // 直接返回 <root>…</root> 补丁，由合并器补基础节点
+                return `<root>${inner}</root>`;
+            };
+
+            const drawioPayloadRaw = extractDrawioPayload(raw);
+            const drawioRoot = normalizeDrawioRoot(drawioPayloadRaw);
+
+            if (drawioRoot) {
+                const cachedDrawio = textDrawioCacheRef.current.get(msg.id);
+                const alreadyFinalDrawio = appliedTextDrawioMessageIdsRef.current.has(msg.id);
+                const isStreaming = isGenerationBusy;
+                const needsApply =
+                    drawioRoot !== cachedDrawio || (!isStreaming && !alreadyFinalDrawio);
+
+                if (needsApply) {
+                    const safeXml = buildSafeDrawioXml(drawioRoot);
+                    if (!safeXml) continue;
+                    textDrawioCacheRef.current.set(msg.id, safeXml);
+                    const isFinal = !isStreaming;
+                    if (isFinal) {
+                        appliedTextDrawioMessageIdsRef.current.add(msg.id);
+                    }
+                    onDisplayDiagram(safeXml, { isFinal: !isStreaming, mode: "drawio", toolCallId: msg.id });
+                    break;
+                }
+                if (!isStreaming && !alreadyFinalDrawio && cachedDrawio) {
+                    appliedTextDrawioMessageIdsRef.current.add(msg.id);
+                }
+            }
+
+            // 兼容流式输出：允许缺少结尾 ``` 或闭合 </svg> 的场景
+            const extractSvgPayload = (text: string) => {
+                // 完整的围栏代码块
+                const fenced = text.match(/```svg[\t ]*\n?([\s\S]*?)```/i);
+                if (fenced?.[1]) return fenced[1];
+
+                // 仅有开头 ```svg，尚未闭合，取其后的全部内容
+                const fencedStart = text.match(/```svg[\t ]*\n?/i);
+                if (fencedStart) {
+                    const startIdx = (fencedStart.index ?? 0) + fencedStart[0].length;
+                    const rest = text.slice(startIdx);
+                    const earlyCloseIdx = rest.indexOf("```");
+                    return earlyCloseIdx >= 0 ? rest.slice(0, earlyCloseIdx) : rest;
+                }
+
+                // 内联 <svg>，允许未闭合的 </svg>
+                const inlineMatch = text.match(/<svg[\s\S]*?(<\/svg>|$)/i);
+                if (inlineMatch?.[0]) return inlineMatch[0];
+
+                return null;
+            };
+
+            const svgPayload = extractSvgPayload(raw);
+            if (!svgPayload) continue;
+
+            const cached = textSvgCacheRef.current.get(msg.id);
+            const alreadyFinalized = appliedTextSvgMessageIdsRef.current.has(msg.id);
+            const isStreaming = isGenerationBusy;
+            const needsApply =
+                svgPayload !== cached || (!isStreaming && !alreadyFinalized);
+
+            if (!needsApply) {
+                if (!isStreaming && !alreadyFinalized && cached) {
+                    appliedTextSvgMessageIdsRef.current.add(msg.id);
+                }
+                continue;
+            }
+
+            textSvgCacheRef.current.set(msg.id, svgPayload);
+            const isFinal = !isStreaming;
+            if (isFinal) {
+                appliedTextSvgMessageIdsRef.current.add(msg.id);
+            }
+            if (onStreamingText) {
+                onStreamingText({
+                    raw: rawOriginal,
+                    clean: raw,
+                    svg: svgPayload,
+                    messageId: msg.id,
+                    isFinal,
+                });
+            }
+            onDisplayDiagram(svgPayload, { isFinal, mode: "svg", toolCallId: msg.id });
+            break;
+        }
+    }, [messages, onDisplayDiagram, isGenerationBusy, onStreamingText]);
+
+    // 流式结束后，如果 draw.io 文本已缓存但未最终应用，补一次最终渲染
+    useEffect(() => {
+        if (isGenerationBusy) return;
+        if (typeof onDisplayDiagram !== "function") return;
+        const reversed = [...messages].reverse();
+        for (const msg of reversed) {
+            if (msg.role !== "assistant" || !msg.id) continue;
+            const cached = textDrawioCacheRef.current.get(msg.id);
+            if (!cached) continue;
+            const alreadyFinal = appliedTextDrawioMessageIdsRef.current.has(msg.id);
+            if (alreadyFinal) break;
+
+            appliedTextDrawioMessageIdsRef.current.add(msg.id);
+            onDisplayDiagram(cached, { isFinal: true, mode: "drawio", toolCallId: msg.id });
+            break;
+        }
+    }, [isGenerationBusy, messages, onDisplayDiagram]);
 
     // Handle tool invocations and default collapse behavior
     useEffect(() => {
@@ -1153,9 +1389,11 @@ export function ChatMessageDisplay({
                 )
                 .map(
                     (part: any) =>
-                        (typeof part.displayText === "string" && part.displayText.length > 0
-                            ? part.displayText
-                            : part.text) ?? ""
+                        stripThink(
+                            (typeof part.displayText === "string" && part.displayText.length > 0
+                                ? part.displayText
+                                : part.text) ?? ""
+                        )
                 )
                 .join("\n")
                 .trim();
@@ -1173,10 +1411,10 @@ export function ChatMessageDisplay({
         }
     }, []);
 
-    const toggleMessageExpanded = useCallback((messageId: string) => {
+    const toggleMessageExpanded = useCallback((messageId: string, currentExpanded: boolean) => {
         setExpandedMessages(prev => ({
             ...prev,
-            [messageId]: !prev[messageId]
+            [messageId]: !currentExpanded
         }));
     }, []);
 
@@ -1266,7 +1504,7 @@ export function ChatMessageDisplay({
 
                                 if (part.type === "text") {
 
-                                    const rawText = part.text ?? "";
+                                    const rawText = stripThink(part.text ?? "");
                                     // 尝试匹配 markdown 代码块中的 SVG（支持多种换行符）
                                     const codeBlockMatch = rawText.match(/```svg\s*\n([\s\S]*?)```/i);
                                     // 如果代码块匹配失败，且文本中包含 <svg 标签，尝试直接提取 SVG 内容

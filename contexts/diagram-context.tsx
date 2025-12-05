@@ -12,6 +12,7 @@ interface DiagramContextType {
     diagramHistory: { svg: string; xml: string }[];
     activeVersionIndex: number;
     loadDiagram: (chart: string) => void;
+    loadDiagramImmediate: (chart: string) => void;
     handleExport: () => void;
     resolverRef: React.Ref<((value: { xml: string; svg: string }) => void) | null>;
     drawioRef: React.Ref<DrawIoEmbedRef | null>;
@@ -50,21 +51,26 @@ export function DiagramProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // 🚀 性能优化：使用防抖避免频繁加载 draw.io
+    // 🚀 性能优化：默认防抖；提供即时加载用于流式预览
+    const loadDiagramImmediate = useCallback((chart: string) => {
+        if (loadDiagramTimeoutRef.current) {
+            clearTimeout(loadDiagramTimeoutRef.current);
+            loadDiagramTimeoutRef.current = null;
+        }
+        if (drawioRef.current) {
+            drawioRef.current.load({ xml: chart });
+        }
+    }, []);
+
     const loadDiagram = useCallback((chart: string) => {
         if (loadDiagramTimeoutRef.current) {
             clearTimeout(loadDiagramTimeoutRef.current);
         }
 
         loadDiagramTimeoutRef.current = setTimeout(() => {
-            if (drawioRef.current) {
-                drawioRef.current.load({
-                    xml: chart,
-                });
-            }
-            loadDiagramTimeoutRef.current = null;
+            loadDiagramImmediate(chart);
         }, 1000); // 1s 防抖，减少卡顿
-    }, []);
+    }, [loadDiagramImmediate]);
 
     const handleDiagramExport = (data: any) => {
         const shouldSaveHistory = saveHistoryRef.current;
@@ -168,6 +174,7 @@ export function DiagramProvider({ children }: { children: React.ReactNode }) {
                 diagramHistory,
                 activeVersionIndex,
                 loadDiagram,
+                loadDiagramImmediate,
                 handleExport,
                 resolverRef,
                 drawioRef,

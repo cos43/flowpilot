@@ -446,6 +446,64 @@ export const zhTranslations = {
     pin: "固定",
     unpin: "取消固定",
   },
+
+  // 关于页面
+  about: {
+    subtitle: "AI 驱动的智能流程图创作工具",
+    features: {
+      title: "核心功能",
+      aiPowered: {
+        title: "AI 智能生成",
+        description: "通过自然语言对话，快速生成专业流程图、架构图等多种图表类型",
+      },
+      templates: {
+        title: "丰富模板库",
+        description: "内置多种业务场景模板，快速开始图表创作",
+      },
+      converter: {
+        title: "SVG 转绘",
+        description: "将现有 SVG 图表智能转换为可编辑的 Draw.io 格式",
+      },
+      multiMode: {
+        title: "双模式编辑",
+        description: "支持 Draw.io 和原生 SVG 两种编辑模式，灵活切换",
+      },
+    },
+    quickStart: {
+      title: "快速开始",
+      step1: {
+        title: "配置 AI 模型",
+        description: '点击右上角"更多"菜单中的"配置"，添加你的 AI 模型 API 密钥',
+      },
+      step2: {
+        title: "选择模板或自由创作",
+        description: "从模板库选择预设模板，或直接描述你想要的图表内容",
+      },
+      step3: {
+        title: "AI 生成与编辑",
+        description: "AI 会根据你的需求生成图表，你可以继续对话进行修改和优化",
+      },
+    },
+    community: {
+      title: "交流与反馈",
+      description: "欢迎加入 FlowPilot 用户社区，分享使用经验、提出建议或获取帮助。",
+      wechat: {
+        title: "微信交流群",
+        description: "添加作者微信，备注「FlowPilot」即可加入用户交流群",
+        contactLabel: "微信号",
+        qrPlaceholder: "二维码",
+        scanToAdd: "扫码添加微信",
+      },
+      github: {
+        title: "GitHub 开源",
+        description: "查看源码、提交 Issue 或参与贡献",
+        button: "访问 GitHub",
+      },
+    },
+    footer: {
+      rights: "保留所有权利",
+    },
+  },
 };
 
 export const enTranslations = {
@@ -893,6 +951,64 @@ export const enTranslations = {
     collapse: "Collapse",
     pin: "Pin",
     unpin: "Unpin",
+  },
+
+  // About Page
+  about: {
+    subtitle: "AI-Powered Intelligent Diagram Creation Tool",
+    features: {
+      title: "Core Features",
+      aiPowered: {
+        title: "AI Smart Generation",
+        description: "Generate professional flowcharts, architecture diagrams, and more through natural language conversation",
+      },
+      templates: {
+        title: "Rich Template Library",
+        description: "Built-in templates for various business scenarios to quickly start diagram creation",
+      },
+      converter: {
+        title: "SVG Conversion",
+        description: "Intelligently convert existing SVG diagrams to editable Draw.io format",
+      },
+      multiMode: {
+        title: "Dual-Mode Editing",
+        description: "Support both Draw.io and native SVG editing modes with flexible switching",
+      },
+    },
+    quickStart: {
+      title: "Quick Start",
+      step1: {
+        title: "Configure AI Model",
+        description: "Click 'Settings' in the 'More' menu at the top right to add your AI model API key",
+      },
+      step2: {
+        title: "Choose Template or Create Freely",
+        description: "Select a preset template from the library or directly describe the diagram you want",
+      },
+      step3: {
+        title: "AI Generation & Editing",
+        description: "AI will generate the diagram based on your requirements, and you can continue the conversation to modify and optimize",
+      },
+    },
+    community: {
+      title: "Community & Feedback",
+      description: "Welcome to join the FlowPilot user community to share experiences, suggestions, or get help.",
+      wechat: {
+        title: "WeChat Community",
+        description: "Add author's WeChat with note 'FlowPilot' to join the user community",
+        contactLabel: "WeChat ID",
+        qrPlaceholder: "QR Code",
+        scanToAdd: "Scan to Add",
+      },
+      github: {
+        title: "GitHub Open Source",
+        description: "View source code, submit issues, or contribute",
+        button: "Visit GitHub",
+      },
+    },
+    footer: {
+      rights: "All rights reserved",
+    },
   },
 };
 

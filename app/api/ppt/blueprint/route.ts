@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateText } from "ai";
-import { resolveChatModel } from "@/lib/server-models";
+import { applyLinkflowSystemWorkaround, getLinkflowOverrides, resolveChatModel } from "@/lib/server-models";
 import {
     pptBriefSchema,
     blueprintSchema,
@@ -164,11 +164,22 @@ CONTENT DEPTH REQUIREMENTS:
 OUTPUT: Complete JSON blueprint with ${brief.slideCount} detailed slides.
 `;
 
-        const result = await generateText({
-            model: resolvedModel.model,
+        const {
+            system: systemForModel,
+            prompt: promptForModel,
+        } = applyLinkflowSystemWorkaround({
+            baseUrl: modelRuntime.baseUrl,
             system: SYSTEM_PROMPT,
             prompt: userPrompt,
+        });
+        const linkflowOverrides = getLinkflowOverrides(modelRuntime.baseUrl);
+
+        const result = await generateText({
+            model: resolvedModel.model,
+            ...(systemForModel ? { system: systemForModel } : {}),
+            prompt: promptForModel ?? userPrompt,
             temperature: 0.4,
+            ...linkflowOverrides,
         });
 
         const raw = extractJsonPayload(result.text);

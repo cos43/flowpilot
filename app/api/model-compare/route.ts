@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { resolveChatModel } from "@/lib/server-models";
+import { applyLinkflowSystemWorkaround, resolveChatModel } from "@/lib/server-models";
 import type { RuntimeModelConfig } from "@/types/model-config";
 
 interface ComparisonModelInput {
@@ -214,19 +214,31 @@ export async function POST(req: Request) {
             normalizedModels.map(async (model) => {
                 const startTime = Date.now();
                 try {
+                    if (!model.runtime) {
+                        throw new Error("Model runtime is not configured");
+                    }
                     const resolved = resolveChatModel(model.runtime);
+                    const baseMessages = [
+                        {
+                            role: "user" as const,
+                            content: [
+                                { type: "text" as const, text: userPrompt },
+                                ...attachmentParts,
+                            ],
+                        },
+                    ];
+                    const {
+                        system: systemForModel,
+                        messages: messagesForModel,
+                    } = applyLinkflowSystemWorkaround({
+                        baseUrl: model.runtime.baseUrl,
+                        system: mode === "svg" ? comparisonSystemPromptSvg : comparisonSystemPromptXml,
+                        messages: baseMessages,
+                    });
                     const response = await generateText({
                         model: resolved.model,
-                        system: mode === "svg" ? comparisonSystemPromptSvg : comparisonSystemPromptXml,
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { type: "text", text: userPrompt },
-                                    ...attachmentParts,
-                                ],
-                            },
-                        ],
+                        ...(systemForModel ? { system: systemForModel } : {}),
+                        messages: messagesForModel ?? baseMessages,
                         temperature: 0.1,
                         abortSignal,  // 传递 AbortSignal 以支持取消请求
                     });

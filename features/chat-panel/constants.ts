@@ -1,4 +1,4 @@
-import { FileText, Settings, Zap } from "lucide-react";
+import { FileText, Settings, Zap, Plus } from "lucide-react";
 
 import type { QuickActionDefinition } from "@/components/quick-action-bar";
 import type { FlowPilotBriefState } from "@/components/flowpilot-brief";
@@ -7,6 +7,11 @@ import type { ToolPanel, ToolbarActionDefinition } from "./types";
 
 
 export const TOOLBAR_ACTIONS: Record<ToolPanel, ToolbarActionDefinition> = {
+    starter: {
+        label: "新建",
+        icon: Plus,
+        description: "灵感起稿",
+    },
     brief: {
         label: "配置",
         icon: Settings,
@@ -24,7 +29,7 @@ export const TOOLBAR_ACTIONS: Record<ToolPanel, ToolbarActionDefinition> = {
     },
 };
 
-export const TOOLBAR_PANELS: ToolPanel[] = ["brief", "actions", "converter"];
+export const TOOLBAR_PANELS: ToolPanel[] = ["starter", "brief"];
 
 export const QUICK_ACTIONS: QuickActionDefinition[] = [
     {

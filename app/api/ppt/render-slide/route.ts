@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { z } from "zod";
-import { resolveChatModel } from "@/lib/server-models";
+import { applyLinkflowSystemWorkaround, getLinkflowOverrides, resolveChatModel } from "@/lib/server-models";
 import { buildSvgRootXml } from "@/lib/svg";
 import {
     slideBlueprintSchema,
@@ -269,11 +269,22 @@ INSTRUCTIONS:
 5. Ensure clean, professional appearance - avoid clutter
 `;
 
-        const result = await generateText({
-            model: resolvedModel.model,
+        const {
+            system: systemForModel,
+            prompt: promptForModel,
+        } = applyLinkflowSystemWorkaround({
+            baseUrl: modelRuntime.baseUrl,
             system: renderMode === "svg" ? SYSTEM_MESSAGE_SVG : SYSTEM_MESSAGE,
             prompt: userPrompt,
+        });
+        const linkflowOverrides = getLinkflowOverrides(modelRuntime.baseUrl);
+
+        const result = await generateText({
+            model: resolvedModel.model,
+            ...(systemForModel ? { system: systemForModel } : {}),
+            prompt: promptForModel ?? userPrompt,
             temperature: 0.15,
+            ...linkflowOverrides,
         });
 
         const { xml, notes } = extractPayload(result.text, renderMode === "svg" ? "svg" : "drawio");

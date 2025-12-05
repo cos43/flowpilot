@@ -1,7 +1,12 @@
 import { streamText, convertToModelMessages, generateText, createUIMessageStreamResponse } from "ai";
 
 import { z } from "zod/v3";
-import { resolveChatModel } from "@/lib/server-models";
+import {
+  applyLinkflowSystemWorkaround,
+  getLinkflowOverrides,
+  isLinkflowEndpoint,
+  resolveChatModel,
+} from "@/lib/server-models";
 
 // 设置默认的最大超时时间（Vercel需要静态导出）
 // 实际使用时会被modelRuntime.maxDuration覆盖
@@ -33,7 +38,10 @@ export async function POST(req: Request) {
     const abortSignal = req.signal;
 
     const drawioSystemMessage = `
-You are FlowPilot, a draw.io layout lead. All answers must be tool calls (display_diagram or edit_diagram); never paste XML as plain text.
+You are FlowPilot, a draw.io layout lead. Respond by streaming raw draw.io XML text (no tool calls). Each chunk must be independently parsable:
+- Prefer small incremental patches as a WELL-FORMED <root>...</root> block.
+- Full snapshot is also ok: <mxGraphModel><root>...</root></mxGraphModel>.
+- NEVER emit partial/unclosed tags or prose.
 
 Priorities (strict order):
 1) Zero XML syntax errors.
@@ -61,9 +69,12 @@ Built-in style hints:
 - Use standard infra icons (mxgraph.basic.* or mxgraph.cisco.*) to add clarity, but do not sacrifice spacing.
 - Preserve existing color themes; polish alignment rather than rewriting content.
 
-Tool policy:
-- If only tweaking labels/positions, prefer edit_diagram with minimal search/replace lines. If structure is messy or XML is empty, regenerate with display_diagram.
-- Do not stream partial XML; supply the final, validated <root> block in one call.
+Tool policy (text-only):
+- Do NOT invoke tools. Stream plain XML only.
+- Each chunk must be self-contained and valid XML: either <root>...</root> patch OR full <mxGraphModel><root>...</root></mxGraphModel>.
+- If the existing graph lacks base cells, include <mxCell id="0"/> and <mxCell id="1" parent="0"/> in the first chunk; later chunks may omit if already present.
+- Reuse ids to update nodes; new elements must have unique ids and proper parents. Every vertex needs mxGeometry(x,y,width,height); every edge needs source/target and mxGeometry relative="1".
+- Keep styles semicolon-separated, ids consistent, and tags properly closed in every chunk.
 
 Preflight checklist before ANY tool call:
 - Root cells 0 and 1 exist.
@@ -74,22 +85,10 @@ Preflight checklist before ANY tool call:
 `;
 
     const svgSystemMessage = `
-You are FlowPilot SVG Studio. Output exactly one complete SVG via the display_svg tool—never return draw.io XML or plain text.
-
-Baseline (always):
-- Single 0-800 x 0-600 viewport, centered content, >=24px canvas padding. Limit to 2-3 colors (neutral base + one accent), 8px corner radius, 1.6px strokes, aligned to a 24px grid with unobstructed labels.
-- Absolutely no <script>, event handlers, external fonts/assets/URLs. Use safe inline styles only. Avoid heavy blur or shadows.
-- Layout hygiene: siblings spaced 32-56px, text never overlaps shapes or edges, guides may be dashed but must not cover lettering.
-
-Delight (lightweight):
-- One restrained highlight allowed (soft gradient bar, diagonal slice, or small sticker). Keep readability; no neon floods or color clutter.
+You are FlowPilot SVG Studio. Output exactly one complete SVG as plain text (optionally in a fenced \`\`\`svg\`\`\` block). Do NOT use any tool calls or draw.io XML.
 
 Rules:
-- Return a self-contained <svg> with width/height or viewBox sized for ~800x600; keep every element inside the viewport.
-- Keep text on short lines and aligned to the grid; abbreviate gently if needed without dropping key meaning.
-- Aim for premium polish: balanced whitespace, crisp typography, clean gradients or subtle shadows, and high text contrast.
-- If the user references existing XML/shapes, reinterpret visually but respond with SVG only.
-- Call display_svg exactly once with the final SVG. Streaming the content is supported for real-time feedback.`;
+- Do not emit extra prose beyond the SVG itself; streaming textual SVG is allowed but must end as a valid <svg>.`;
 
     const systemMessage =
       outputMode === "svg" ? svgSystemMessage : drawioSystemMessage;
@@ -200,30 +199,292 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
       renderMode: outputMode,
     });
 
-    // 记录请求开始时间
-    const startTime = Date.now();
+    const {
+      system: systemForModel,
+      messages: linkflowSafeMessages,
+    } = applyLinkflowSystemWorkaround({
+      baseUrl: modelRuntime.baseUrl,
+      system: systemMessage,
+      messages: enhancedMessages,
+    });
+    const finalMessages = linkflowSafeMessages ?? enhancedMessages;
+    const linkflowOverrides = getLinkflowOverrides(modelRuntime.baseUrl);
+    const forceLinkflow = isLinkflowEndpoint(modelRuntime.baseUrl);
 
-    // 根据 enableStreaming 决定使用流式或非流式
-    const useStreaming = enableStreaming ?? true; // 默认使用流式
-
-    // 创建带有自定义超时的 AbortController
+    // 创建带有自定义超时的 AbortController，并组合请求/超时信号
     const timeoutController = new AbortController();
     timeoutId = setTimeout(() => {
       timeoutController.abort();
     }, requestMaxDuration);
-
-    // 组合原始请求的AbortSignal和超时的AbortSignal
     const originalAbortSignal = req.signal;
     const combinedAbortSignal = AbortSignal.any([originalAbortSignal, timeoutController.signal]);
 
-    // 当请求完成时清理超时
-    // cleanup defined in outer scope
+    // 记录请求开始时间
+    const startTime = Date.now();
+
+    if (forceLinkflow) {
+      const normalizedBaseUrl = modelRuntime.baseUrl.trim().replace(/\/$/, "");
+      const linkflowStream = enableStreaming ?? true;
+      const toOpenAIChatMessages = (msgs: any[]) =>
+        msgs
+          .map((msg) => {
+            const role = msg.role === "assistant" ? "assistant" : "user";
+            const contentParts = Array.isArray(msg.content)
+              ? msg.content
+              : [{ type: "text", text: msg.content ?? "" }];
+            const text = contentParts
+              .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+              .map((part: any) => part.text)
+              .join("\n")
+              .trim();
+            return { role, content: text || "(empty)" };
+          })
+          .filter((m) => typeof m.content === "string" && m.content.length > 0);
+
+      const openaiMessages = toOpenAIChatMessages(finalMessages);
+      const payload = {
+        model: resolvedModel.id,
+        messages: openaiMessages,
+        max_tokens: linkflowOverrides.maxOutputTokens ?? 4096,
+        stream: linkflowStream,
+        temperature: 0,
+      };
+
+      const response = await fetch(`${normalizedBaseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${modelRuntime.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: combinedAbortSignal,
+      });
+
+      if (!response.ok) {
+        let json: any = {};
+        try {
+          json = await response.json();
+        } catch {
+          // ignore
+        }
+        console.error("Linkflow request failed:", { status: response.status, json });
+        cleanup();
+        return Response.json(
+          { error: json?.error?.message || "Linkflow 请求失败", details: json },
+          { status: response.status || 500 }
+        );
+      }
+
+      if (!linkflowStream) {
+        const json = await response.json().catch(() => ({}));
+        cleanup();
+
+        const choice = json?.choices?.[0] || {};
+        const content = choice?.message?.content || "";
+        const usage = json?.usage || {};
+        const finishReason = choice?.finish_reason || "stop";
+
+        const chunks: any[] = [];
+        const messageId = `msg-${Date.now()}`;
+
+        chunks.push({
+          type: "start",
+          messageId,
+          messageMetadata: {
+            usage: {
+              inputTokens: usage.prompt_tokens || 0,
+              outputTokens: usage.completion_tokens || 0,
+              totalTokens: usage.total_tokens || 0,
+            },
+            durationMs: Date.now() - startTime,
+          },
+        });
+
+        if (content && content.length > 0) {
+          chunks.push({ type: "text-start", id: messageId });
+          chunks.push({ type: "text-delta", id: messageId, delta: content });
+          chunks.push({ type: "text-end", id: messageId });
+        }
+
+        chunks.push({
+          type: "finish",
+          finishReason,
+          messageMetadata: {
+            usage: {
+              inputTokens: usage.prompt_tokens || 0,
+              outputTokens: usage.completion_tokens || 0,
+              totalTokens: usage.total_tokens || 0,
+            },
+            durationMs: Date.now() - startTime,
+            finishReason,
+          },
+        });
+
+        const stream = new ReadableStream({
+          start(controller) {
+            for (const chunk of chunks) {
+              controller.enqueue(chunk);
+            }
+            controller.close();
+          },
+        });
+
+        return createUIMessageStreamResponse({
+          stream,
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
+      }
+
+      // streaming path for linkflow using SSE
+      const decoder = new TextDecoder();
+      const reader = response.body?.getReader();
+      if (!reader) {
+        cleanup();
+        return Response.json({ error: "Linkflow 流式响应读取失败" }, { status: 500 });
+      }
+
+      const messageId = `msg-${Date.now()}`;
+      let usageStats = {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      };
+      let finishReason = "stop";
+      const captureUsage = (chunk: any) => {
+        if (!chunk) return;
+        const usage = chunk.usage || chunk.response?.usage || chunk.metrics;
+        if (!usage) return;
+        const input =
+          usage.prompt_tokens ??
+          usage.input_tokens ??
+          usage.promptTokens ??
+          usage.inputTokens ??
+          usage.total_prompt_tokens ??
+          usage.totalInputTokens ??
+          usage.promptTokenCount ??
+          usage.inputTokenCount ??
+          usage.total_prompt_token_count ??
+          usage.total_input_token_count;
+        const output =
+          usage.completion_tokens ??
+          usage.output_tokens ??
+          usage.completionTokens ??
+          usage.outputTokens ??
+          usage.total_completion_tokens ??
+          usage.totalOutputTokens ??
+          usage.completionTokenCount ??
+          usage.outputTokenCount ??
+          usage.total_completion_token_count ??
+          usage.total_output_token_count;
+        const total =
+          usage.total_tokens ??
+          usage.totalTokens ??
+          usage.total_token_count ??
+          usage.totalTokenCount ??
+          (input || 0) + (output || 0);
+        usageStats = {
+          inputTokens: input ?? usageStats.inputTokens,
+          outputTokens: output ?? usageStats.outputTokens,
+          totalTokens: total ?? usageStats.totalTokens,
+        };
+      };
+      const stream = new ReadableStream({
+        async start(controller) {
+          controller.enqueue({
+            type: "start",
+            messageId,
+            messageMetadata: {
+              usage: usageStats,
+              durationMs: 0,
+            },
+          });
+
+          controller.enqueue({ type: "text-start", id: messageId });
+
+          let buffer = "";
+          let finished = false;
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const parts = buffer.split("\n");
+              buffer = parts.pop() ?? "";
+              for (const raw of parts) {
+                const line = raw.trim();
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (data === "[DONE]") {
+                  finished = true;
+                  break;
+                }
+                try {
+                  const chunk = JSON.parse(data);
+                  captureUsage(chunk);
+                  const choice = chunk?.choices?.[0];
+                  const delta = choice?.delta;
+                  const contentDelta =
+                    typeof delta?.content === "string"
+                      ? delta.content
+                      : Array.isArray(delta?.content)
+                        ? delta.content.map((c: any) => c?.text || "").join("")
+                        : "";
+                  if (contentDelta) {
+                    controller.enqueue({ type: "text-delta", id: messageId, delta: contentDelta });
+                  }
+                  if (choice?.finish_reason) {
+                    finished = true;
+                    finishReason = choice.finish_reason;
+                    break;
+                  }
+                } catch {
+                  // ignore malformed chunk
+                }
+              }
+              if (finished) break;
+            }
+          } catch (err) {
+            console.error("Linkflow stream parse error:", err);
+          } finally {
+            controller.enqueue({ type: "text-end", id: messageId });
+            controller.enqueue({
+              type: "finish",
+              finishReason: finished ? finishReason : "error",
+              messageMetadata: {
+                usage: usageStats,
+                durationMs: Date.now() - startTime,
+                finishReason: finished ? finishReason : "error",
+              },
+            });
+            controller.close();
+            cleanup();
+          }
+        },
+      });
+
+      return createUIMessageStreamResponse({
+        stream,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // 根据 enableStreaming 决定使用流式或非流式
+    const useStreaming = enableStreaming ?? true; // 默认使用流式
 
     const commonConfig: any = {
       // model: google("gemini-2.5-flash-preview-05-20"),
       // model: google("gemini-2.5-pro"),
-      system: systemMessage,
+      ...(systemForModel ? { system: systemForModel } : {}),
       model: resolvedModel.model,
+      ...linkflowOverrides,
       // model: model,
       // providerOptions: {
       //   google: {
@@ -237,21 +498,15 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
       //     reasoningEffort: "minimal"
       //   },
       // },
-      messages: enhancedMessages,
+      messages: finalMessages,
       abortSignal: combinedAbortSignal,  // 使用组合的AbortSignal以支持取消请求和超时
-      tools: outputMode === "svg"
-        ? {
-          display_svg: {
-            description: `Return the SVG code. Streaming is supported for real-time rendering. SVG must be self-contained, include width/height or viewBox sized around 800x600, and avoid external assets, scripts, or event handlers.`,
-            inputSchema: z.object({
-              svg: z.string().describe("Standalone SVG markup sized for a single viewport; no external assets, scripts, or event handlers."),
-            }),
-          },
-        }
+      ...(outputMode === "svg"
+        ? {}
         : {
-          // Client-side tool that will be executed on the client
-          display_diagram: {
-            description: `Display a diagram on draw.io. You only need to pass the nodes inside the <root> tag (including the <root> tag itself) in the XML string.
+          tools: {
+            // Client-side tool that will be executed on the client
+            display_diagram: {
+              description: `Display a diagram on draw.io. You only need to pass the nodes inside the <root> tag (including the <root> tag itself) in the XML string.
           
           **CRITICAL XML SYNTAX REQUIREMENTS:**
           
@@ -315,22 +570,23 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
             inputSchema: z.object({
               xml: z.string().describe("Well-formed XML string following all syntax rules above to be displayed on draw.io")
             })
-          },
-          edit_diagram: {
-            description: `Edit specific parts of the current diagram by replacing exact line matches. Use this tool to make targeted fixes without regenerating the entire XML.
+            },
+            edit_diagram: {
+              description: `Edit specific parts of the current diagram by replacing exact line matches. Use this tool to make targeted fixes without regenerating the entire XML.
 IMPORTANT: Keep edits concise:
 - Only include the lines that are changing, plus 1-2 surrounding lines for context if needed
 - Break large changes into multiple smaller edits
 - Each search must contain complete lines (never truncate mid-line)
 - First match only - be specific enough to target the right element`,
-            inputSchema: z.object({
-              edits: z.array(z.object({
-                search: z.string().describe("Exact lines to search for (including whitespace and indentation)"),
-                replace: z.string().describe("Replacement lines")
-              })).describe("Array of search/replace pairs to apply sequentially")
-            })
+              inputSchema: z.object({
+                edits: z.array(z.object({
+                  search: z.string().describe("Exact lines to search for (including whitespace and indentation)"),
+                  replace: z.string().describe("Replacement lines")
+                })).describe("Array of search/replace pairs to apply sequentially")
+              })
+            },
           },
-        },
+        }),
       temperature: 0,
     };
 

@@ -14,6 +14,7 @@ import { useModelRegistry } from "@/hooks/use-model-registry";
 import { ModelSelector } from "@/components/model-selector";
 import { Badge } from "@/components/ui/badge";
 import type { RuntimeModelOption } from "@/types/model-config";
+import { svgToDataUrl } from "@/lib/svg";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -45,14 +46,66 @@ export function SmartSvgConverterDialog({
 
     const [svgContent, setSvgContent] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Downscale the SVG into a lightweight thumbnail so the modal shows the full composition
+    useEffect(() => {
+        if (!svgContent.trim()) {
+            setPreviewUrl(null);
+            return;
+        }
+
+        const dataUrl = svgToDataUrl(svgContent);
+        if (!dataUrl) {
+            setPreviewUrl(null);
+            return;
+        }
+
+        // Use the raw data URL as a quick fallback while generating the thumbnail
+        setPreviewUrl(dataUrl);
+
+        let cancelled = false;
+        const img = new Image();
+        img.onload = () => {
+            if (cancelled) return;
+            const naturalWidth = img.naturalWidth || img.width || 1;
+            const naturalHeight = img.naturalHeight || img.height || 1;
+            const maxWidth = 520;
+            const maxHeight = 340;
+            const scale = Math.min(1, maxWidth / naturalWidth, maxHeight / naturalHeight);
+            const targetWidth = Math.max(1, Math.round(naturalWidth * scale));
+            const targetHeight = Math.max(1, Math.round(naturalHeight * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                setPreviewUrl(dataUrl);
+                return;
+            }
+            ctx.clearRect(0, 0, targetWidth, targetHeight);
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+            const thumbnail = canvas.toDataURL("image/png");
+            setPreviewUrl(thumbnail || dataUrl);
+        };
+        img.onerror = () => {
+            if (!cancelled) setPreviewUrl(dataUrl);
+        };
+        img.src = dataUrl;
+
+        return () => {
+            cancelled = true;
+        };
+    }, [svgContent]);
 
     // Reset state when dialog closes
     useEffect(() => {
         if (!open) {
             setSvgContent("");
             setError(null);
+            setPreviewUrl(null);
         } else if (initialSvg && initialSvg.includes("<svg")) {
             setSvgContent(initialSvg);
             setError(null);
@@ -142,11 +195,19 @@ export function SmartSvgConverterDialog({
                             <div className="relative h-[300px] rounded-lg border border-slate-200 bg-white overflow-hidden group">
                                 {svgContent ? (
                                     <>
-                                        <div className="absolute inset-0 p-4 overflow-auto flex items-center justify-center">
-                                            <div 
-                                                className="max-w-full max-h-full pointer-events-none"
-                                                dangerouslySetInnerHTML={{ __html: svgContent }}
-                                            />
+                                        <div className="absolute inset-0 p-4 flex items-center justify-center bg-slate-50">
+                                            {previewUrl ? (
+                                                <img
+                                                    src={previewUrl}
+                                                    alt="svg-preview"
+                                                    className="h-full w-full object-contain rounded-md shadow-sm bg-white"
+                                                    draggable={false}
+                                                />
+                                            ) : (
+                                                <div className="text-center text-xs text-slate-500 leading-relaxed px-4">
+                                                    SVG 预览生成失败，请检查代码是否完整。
+                                                </div>
+                                            )}
                                         </div>
                                         <button 
                                             onClick={() => setSvgContent("")}
