@@ -15,6 +15,9 @@ interface EnvEndpointConfig {
     models: EnvModelConfig[];
 }
 
+// 用于标记环境变量模型的特殊前缀
+const ENV_MODEL_PREFIX = "__ENV__";
+
 /**
  * 从环境变量解析默认模型配置
  * @returns 解析后的模型端点配置数组，如果解析失败返回 null
@@ -69,14 +72,19 @@ export function parseDefaultModelsFromEnv(): ModelEndpointConfig[] | null {
                 continue;
             }
 
+            // 标记为环境变量来源的端点，使用特殊 ID 前缀
             endpoints.push({
-                id: nanoid(12),
+                id: `${ENV_MODEL_PREFIX}${nanoid(12)}`,
                 name: endpoint.name?.trim() || "未命名",
                 baseUrl: endpoint.baseUrl.trim(),
                 apiKey: endpoint.apiKey.trim(),
-                models: validModels,
+                models: validModels.map(m => ({
+                    ...m,
+                    id: `${ENV_MODEL_PREFIX}${m.id}` // 模型 ID 也标记
+                })),
                 createdAt: timestamp,
                 updatedAt: timestamp,
+                isFromEnv: true, // 添加环境变量标记
             });
         }
 
@@ -106,4 +114,32 @@ export function getDefaultEndpoints(): ModelEndpointConfig[] {
 
     return [
     ];
+}
+
+/**
+ * 检查端点是否来自环境变量
+ */
+export function isEndpointFromEnv(endpointId: string): boolean {
+    return endpointId.startsWith(ENV_MODEL_PREFIX);
+}
+
+/**
+ * 检查模型是否来自环境变量
+ */
+export function isModelFromEnv(modelId: string): boolean {
+    return modelId.startsWith(ENV_MODEL_PREFIX);
+}
+
+/**
+ * 过滤掉环境变量端点，只返回用户配置的端点
+ */
+export function filterUserEndpoints(endpoints: ModelEndpointConfig[]): ModelEndpointConfig[] {
+    return endpoints.filter(endpoint => !isEndpointFromEnv(endpoint.id));
+}
+
+/**
+ * 获取仅来自环境变量的端点
+ */
+export function getEnvOnlyEndpoints(endpoints: ModelEndpointConfig[]): ModelEndpointConfig[] {
+    return endpoints.filter(endpoint => isEndpointFromEnv(endpoint.id));
 }

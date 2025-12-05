@@ -252,9 +252,7 @@ export function ModelSelector({
                                                     {group.providerHint}
                                                 </span>
                                             </div>
-                                            {group.items.map((model) => {
-                                                const isFromEnv = isEndpointFromEnv(model.endpointId);
-                                                return (
+                                            {group.items.map((model) => (
                                                 <div
                                                     key={model.key}
                                                     className={cn(
@@ -277,11 +275,6 @@ export function ModelSelector({
                                                         className="flex w-full items-center justify-between"
                                                     >
                                                         <div className="flex items-center gap-2">
-                                                            {isFromEnv && (
-                                                                <span title="系统配置模型（安全）" className="shrink-0">
-                                                                    <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
-                                                                </span>
-                                                            )}
                                                             {model.isStreaming ? (
                                                                 <span title="流式输出">
                                                                     <Zap className="h-3.5 w-3.5 text-blue-500" />
@@ -302,8 +295,8 @@ export function ModelSelector({
                                                     <div className="ml-5 text-xs font-mono text-slate-400">
                                                         {model.modelId}
                                                     </div>
-                                                    {/* 流式输出开关 - 环境变量模型不允许修改 */}
-                                                    {onModelStreamingChange && !isFromEnv && (
+                                                    {/* 流式输出开关 */}
+                                                    {onModelStreamingChange && (
                                                         <div className="ml-5 flex items-center gap-2 text-xs">
                                                             <span className="text-slate-600">流式输出:</span>
                                                             <Switch
@@ -320,16 +313,8 @@ export function ModelSelector({
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {/* 环境变量模型显示锁定提示 */}
-                                                    {isFromEnv && (
-                                                        <div className="ml-5 flex items-center gap-1.5 text-xs text-green-600">
-                                                            <ShieldCheck className="h-3 w-3" />
-                                                            <span>系统配置（安全保护）</span>
-                                                        </div>
-                                                    )}
                                                 </div>
-                                                );
-                                            })}
+                                            ))}
                                         </div>
                                     ))}
                                 </div>

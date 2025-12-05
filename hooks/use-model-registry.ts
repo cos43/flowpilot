@@ -10,7 +10,7 @@ import {
     ModelRegistryState,
     RuntimeModelOption,
 } from "@/types/model-config";
-import { getDefaultEndpoints } from "@/lib/env-models";
+import { getDefaultEndpoints, filterUserEndpoints, isEndpointFromEnv } from "@/lib/env-models";
 
 const STORAGE_KEY = "flowpilot.modelRegistry.v1";
 
@@ -150,7 +150,13 @@ export function useModelRegistry() {
         setState((prev) => {
             const next = updater(prev);
             if (typeof window !== "undefined") {
-                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+                // 只保存用户配置的端点，环境变量端点不保存到 localStorage
+                const userEndpoints = filterUserEndpoints(next.endpoints);
+                const persistState = {
+                    endpoints: userEndpoints,
+                    selectedModelKey: next.selectedModelKey,
+                };
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistState));
             }
             return next;
         });
@@ -164,58 +170,87 @@ export function useModelRegistry() {
             const raw = window.localStorage.getItem(STORAGE_KEY);
             let initialState: ModelRegistryState;
             
+            // 获取环境变量端点（总是从环境变量读取，不从 localStorage 读取）
+            const envEndpoints = getDefaultEndpoints();
+            
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (parsed && typeof parsed === "object") {
-                    const endpoints = Array.isArray(parsed.endpoints)
+                    const userEndpoints = Array.isArray(parsed.endpoints)
                         ? parsed.endpoints
                         : [];
+                    
+                    // 合并环境变量端点和用户端点
+                    const allEndpoints = [...envEndpoints, ...userEndpoints];
                     
                     const normalizedSelection = determineNextSelection(
                         typeof parsed.selectedModelKey === "string"
                             ? parsed.selectedModelKey
                             : undefined,
-                        endpoints
+                        allEndpoints
                     );
                     initialState = {
-                        endpoints,
+                        endpoints: allEndpoints,
                         selectedModelKey: normalizedSelection,
                     };
                     
                     setState(initialState);
                     if (initialState.selectedModelKey !== parsed.selectedModelKey) {
+                        const persistState = {
+                            endpoints: filterUserEndpoints(initialState.endpoints),
+                            selectedModelKey: initialState.selectedModelKey,
+                        };
                         window.localStorage.setItem(
                             STORAGE_KEY,
-                            JSON.stringify(initialState)
+                            JSON.stringify(persistState)
                         );
                     }
                 } else {
                     // Invalid format, use default config
-                    initialState = createDefaultConfig();
+                    initialState = {
+                        endpoints: envEndpoints,
+                        selectedModelKey: determineNextSelection(undefined, envEndpoints),
+                    };
                     setState(initialState);
                     window.localStorage.setItem(
                         STORAGE_KEY,
-                        JSON.stringify(initialState)
+                        JSON.stringify({
+                            endpoints: [],
+                            selectedModelKey: initialState.selectedModelKey,
+                        })
                     );
                 }
             } else {
-                // First time use, use default config
-                initialState = createDefaultConfig();
+                // First time use, use env endpoints only
+                initialState = {
+                    endpoints: envEndpoints,
+                    selectedModelKey: determineNextSelection(undefined, envEndpoints),
+                };
                 setState(initialState);
                 window.localStorage.setItem(
                     STORAGE_KEY,
-                    JSON.stringify(initialState)
+                    JSON.stringify({
+                        endpoints: [],
+                        selectedModelKey: initialState.selectedModelKey,
+                    })
                 );
             }
         } catch (error) {
             console.error("Failed to load model registry:", error);
-            // On error, use default config
-            const fallbackState = createDefaultConfig();
+            // On error, use env endpoints
+            const envEndpoints = getDefaultEndpoints();
+            const fallbackState = {
+                endpoints: envEndpoints,
+                selectedModelKey: determineNextSelection(undefined, envEndpoints),
+            };
             setState(fallbackState);
             try {
                 window.localStorage.setItem(
                     STORAGE_KEY,
-                    JSON.stringify(fallbackState)
+                    JSON.stringify({
+                        endpoints: [],
+                        selectedModelKey: fallbackState.selectedModelKey,
+                    })
                 );
             } catch (e) {
                 console.error("Failed to save fallback state:", e);
@@ -256,11 +291,17 @@ export function useModelRegistry() {
                             Boolean(endpoint)
                     );
                 
+                // 获取环境变量端点
+                const envEndpoints = getDefaultEndpoints();
+                
+                // 合并环境变量端点和用户配置端点
+                const allEndpoints = [...envEndpoints, ...normalized];
+                
                 return {
-                    endpoints: normalized,
+                    endpoints: allEndpoints,
                     selectedModelKey: determineNextSelection(
                         prev.selectedModelKey,
-                        normalized
+                        allEndpoints
                     ),
                 };
             });
@@ -269,10 +310,14 @@ export function useModelRegistry() {
     );
 
     const clearRegistry = useCallback(() => {
-        setAndPersist(() => ({
-            endpoints: [],
-            selectedModelKey: undefined,
-        }));
+        setAndPersist(() => {
+            // 清除时保留环境变量端点
+            const envEndpoints = getDefaultEndpoints();
+            return {
+                endpoints: envEndpoints,
+                selectedModelKey: determineNextSelection(undefined, envEndpoints),
+            };
+        });
     }, [setAndPersist]);
 
     const selectedModel = useMemo(() => {
@@ -286,6 +331,7 @@ export function useModelRegistry() {
         isReady,
         hasConfiguredModels: models.length > 0,
         endpoints: state.endpoints,
+        userEndpoints: filterUserEndpoints(state.endpoints), // 只返回用户配置的端点
         models,
         selectedModelKey: state.selectedModelKey,
         selectedModel,

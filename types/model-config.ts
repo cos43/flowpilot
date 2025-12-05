@@ -19,6 +19,7 @@ export interface ModelEndpointConfig {
     models: EndpointModelConfig[];
     createdAt: number;
     updatedAt: number;
+    isFromEnv?: boolean; // 标记是否来自环境变量
 }
 
 export interface RuntimeModelConfig {

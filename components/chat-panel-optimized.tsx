@@ -287,6 +287,7 @@ export default function ChatPanelOptimized({
         isReady: isModelRegistryReady,
         hasConfiguredModels,
         endpoints: modelEndpoints,
+        userEndpoints, // 只包含用户配置的端点，不包括环境变量端点
         models: modelOptions,
         selectedModelKey,
         selectedModel,
@@ -1468,6 +1469,16 @@ export default function ChatPanelOptimized({
                                 <History className="h-3.5 w-3.5"/>
                                 <span className="leading-none">历史记录</span>
                             </button>
+                            <a
+                                href="https://github.com/cos43/flowpilot"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-slate-700 transition-all duration-200 hover:bg-white/40 active:scale-95"
+                                title="GitHub"
+                            >
+                                <FaGithub className="h-3.5 w-3.5"/>
+                                <span className="leading-none">GitHub</span>
+                            </a>
                         </div>
                         <div className="flex items-center gap-2">
                             <DropdownMenu>
@@ -1532,17 +1543,6 @@ export default function ChatPanelOptimized({
                                     >
                                         <Handshake className="mr-2 h-4 w-4"/>
                                         交流联系
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <a
-                                            href="https://github.com/cos43/flowpilot"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center"
-                                        >
-                                            <FaGithub className="mr-2 h-4 w-4"/>
-                                            GitHub
-                                        </a>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -1926,7 +1926,7 @@ export default function ChatPanelOptimized({
             <ModelConfigDialog
                 open={isModelConfigOpen}
                 onOpenChange={setIsModelConfigOpen}
-                endpoints={modelEndpoints}
+                endpoints={userEndpoints}
                 onSave={saveEndpoints}
             />
             <ConversationHistoryDialog

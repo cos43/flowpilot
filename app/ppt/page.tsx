@@ -14,6 +14,7 @@ function PptPageContent() {
         selectedModelKey,
         selectModel,
         endpoints,
+        userEndpoints,
         saveEndpoints,
         isReady,
         hasConfiguredModels,
@@ -54,7 +55,7 @@ function PptPageContent() {
             <ModelConfigDialog
                 open={isModelDialogOpen}
                 onOpenChange={setIsModelDialogOpen}
-                endpoints={endpoints}
+                endpoints={userEndpoints}
                 onSave={saveEndpoints}
             />
         </div>
