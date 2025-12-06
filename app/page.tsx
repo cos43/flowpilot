@@ -79,34 +79,16 @@ export default function Home() {
         setDrawioError(null);
     };
 
-    const showDrawio = renderMode === "drawio";
-
-    if (isMobile) {
-        return (
-            <div className="flex min-h-screen flex-col bg-gray-100">
-                <WorkspaceNav />
-                <div className="flex flex-1 items-center justify-center px-6">
-                    <div className="text-center rounded-2xl border border-gray-200 bg-white/90 p-8 shadow-sm">
-                        <h1 className="text-2xl font-semibold text-gray-800">
-                            {t("workspace.mobileWarning")}
-                        </h1>
-                        <p className="mt-2 text-sm text-gray-500">
-                            {t("workspace.mobileHint")}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     const mainContentRef = React.useRef<HTMLDivElement>(null);
+    const showDrawio = renderMode === "drawio";
 
     useEffect(() => {
         // Scroll to main content on mount to hide the top nav
+        if (isMobile) return;
         if (mainContentRef.current) {
             mainContentRef.current.scrollIntoView({ behavior: "instant" });
         }
-    }, []);
+    }, [isMobile]);
 
     useEffect(() => {
         if (!isResizingChat) return;
@@ -189,129 +171,149 @@ export default function Home() {
     // 修改网格布局逻辑，始终包含聊天面板的空间，但在不可见时设置为 0
     const gridTemplateColumns = `${100 - (isChatVisible ? chatWidthPercent : 0)}fr ${isChatVisible ? RESIZER_WIDTH : 0}px ${isChatVisible ? chatWidthPercent : 0}fr`;
 
-    return (
-        <div className="bg-gray-100">
-            <section className="flex min-h-screen flex-col">
-                {/* <WorkspaceNav /> */}
-                <div
-                    ref={mainContentRef}
-                    className="grid h-dvh min-h-0 flex-1"
-                    style={{ gridTemplateColumns }}
-                >
-                    <div className="relative flex h-full min-h-0 min-w-0 p-1">
-                        <div
+    const mobileContent = (
+        <div className="flex min-h-screen flex-col bg-gray-100">
+            <WorkspaceNav />
+            <div className="flex flex-1 items-center justify-center px-6">
+                <div className="text-center rounded-2xl border border-gray-200 bg-white/90 p-8 shadow-sm">
+                    <h1 className="text-2xl font-semibold text-gray-800">
+                        {t("workspace.mobileWarning")}
+                    </h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        {t("workspace.mobileHint")}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+
+    const desktopContent = (
+        <section className="flex min-h-screen flex-col">
+            {/* <WorkspaceNav /> */}
+            <div
+                ref={mainContentRef}
+                className="grid h-dvh min-h-0 flex-1"
+                style={{ gridTemplateColumns }}
+            >
+                <div className="relative flex h-full min-h-0 min-w-0 p-1">
+                    <div
+                        className={cn(
+                            "pointer-events-none",
+                            isChatVisible
+                                ? "absolute right-4 top-4 z-30"
+                                : "fixed right-6 top-24 z-40"
+                        )}
+                    >
+                        <button
+                            type="button"
+                            aria-label={isChatVisible ? t("workspace.focusCanvas") : t("workspace.showChat")}
+                            onClick={() => setIsChatVisible((prev) => !prev)}
                             className={cn(
-                                "pointer-events-none",
+                                "pointer-events-auto inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition",
                                 isChatVisible
-                                    ? "absolute right-4 top-4 z-30"
-                                    : "fixed right-6 top-24 z-40"
+                                    ? "border-gray-200 bg-white/90 text-gray-700 shadow-sm hover:bg-white"
+                                    : "border-blue-500 bg-blue-600 text-white shadow-lg hover:bg-blue-500/90"
                             )}
                         >
-                            <button
-                                type="button"
-                                aria-label={isChatVisible ? t("workspace.focusCanvas") : t("workspace.showChat")}
-                                onClick={() => setIsChatVisible((prev) => !prev)}
-                                className={cn(
-                                    "pointer-events-auto inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition",
-                                    isChatVisible
-                                        ? "border-gray-200 bg-white/90 text-gray-700 shadow-sm hover:bg-white"
-                                        : "border-blue-500 bg-blue-600 text-white shadow-lg hover:bg-blue-500/90"
-                                )}
-                            >
-                                {isChatVisible ? (
-                                    <>
-                                        <Minimize2 className="h-3.5 w-3.5" />
-                                        {t("workspace.focusCanvas")}
-                                    </>
-                                ) : (
-                                    <>
-                                        <MessageSquare className="h-3.5 w-3.5" />
-                                        {t("workspace.showChat")}
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                        {showDrawio ? (
-                            drawioError ? (
-                                <div className="flex items-center justify-center h-full bg-white rounded border-2 border-red-200">
-                                    <div className="text-center p-8 max-w-md">
-                                        <h2 className="text-xl font-semibold text-red-600 mb-4">
-                                            {t("drawio.loadFailed")}
-                                        </h2>
-                                        <p className="text-gray-700 mb-4">{drawioError}</p>
-                                        <div className="text-sm text-gray-600 text-left bg-gray-50 p-4 rounded">
-                                            <p className="font-semibold mb-2">{t("drawio.solutions")}</p>
-                                            <ol className="list-decimal list-inside space-y-1">
-                                                <li>{t("drawio.solution1")}</li>
-                                                <li>{t("drawio.solution2")}</li>
-                                                <li className="ml-4 font-mono text-xs bg-white p-2 rounded mt-2">
-                                                    NEXT_PUBLIC_DRAWIO_BASE_URL=https://app.diagrams.net
-                                                </li>
-                                                <li>{t("drawio.solution3")}</li>
-                                            </ol>
-                                        </div>
-                                    </div>
-                                </div>
+                            {isChatVisible ? (
+                                <>
+                                    <Minimize2 className="h-3.5 w-3.5" />
+                                    {t("workspace.focusCanvas")}
+                                </>
                             ) : (
                                 <>
-                                    {isDrawioLoading && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
-                                            <div className="text-center">
-                                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                                                <p className="text-gray-600">{t("drawio.loadingEditor")}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <DrawIoEmbed
-                                        ref={drawioRef}
-                                        baseUrl={drawioBaseUrl}
-                                        onExport={handleDiagramExport}
-                                        onLoad={handleDrawioLoad}
-                                        urlParameters={{
-                                            spin: true,
-                                            libraries: false,
-                                            saveAndExit: false,
-                                            noExitBtn: true,
-                                        }}
-                                    />
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    {t("workspace.showChat")}
                                 </>
-                            )
+                            )}
+                        </button>
+                    </div>
+                    {showDrawio ? (
+                        drawioError ? (
+                            <div className="flex items-center justify-center h-full bg-white rounded border-2 border-red-200">
+                                <div className="text-center p-8 max-w-md">
+                                    <h2 className="text-xl font-semibold text-red-600 mb-4">
+                                        {t("drawio.loadFailed")}
+                                    </h2>
+                                    <p className="text-gray-700 mb-4">{drawioError}</p>
+                                    <div className="text-sm text-gray-600 text-left bg-gray-50 p-4 rounded">
+                                        <p className="font-semibold mb-2">{t("drawio.solutions")}</p>
+                                        <ol className="list-decimal list-inside space-y-1">
+                                            <li>{t("drawio.solution1")}</li>
+                                            <li>{t("drawio.solution2")}</li>
+                                            <li className="ml-4 font-mono text-xs bg-white p-2 rounded mt-2">
+                                                NEXT_PUBLIC_DRAWIO_BASE_URL=https://app.diagrams.net
+                                            </li>
+                                            <li>{t("drawio.solution3")}</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
                         ) : (
-                            <SvgPreviewPane />
-                        )}
-                    </div>
-                    {/* 分隔器 - 始终渲染但只在可见时显示 */}
-                    <div
-                        role="separator"
-                        aria-orientation="vertical"
-                        onPointerDown={handleResizeChatStart}
-                        className={cn(
-                            "h-full items-center justify-center border-x border-slate-100 bg-white/60 transition hover:bg-slate-100 active:bg-slate-200 cursor-col-resize",
-                            isChatVisible ? "flex" : "hidden",
-                            isResizingChat && "bg-blue-50 border-blue-200"
-                        )}
-                        style={{ width: isChatVisible ? RESIZER_WIDTH : 0 }}
-                    >
-                        <div className="h-10 w-1 rounded-full bg-slate-300" />
-                    </div>
-                    {/* Chat Panel - 始终渲染，通过位置控制显示 */}
-                    <div
-                        className={cn(
-                            "h-full min-h-0 p-1 transition-all duration-300",
-                            isChatVisible
-                                ? "opacity-100"
-                                : "opacity-0 pointer-events-none"
-                        )}
-                    >
-                        <ChatPanelOptimized
-                            onCollapse={() => setIsChatVisible(false)}
-                            isCollapsible
-                            renderMode={renderMode}
-                            onRenderModeChange={setRenderMode}
-                        />
-                    </div>
+                            <>
+                                {isDrawioLoading && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
+                                        <div className="text-center">
+                                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                            <p className="text-gray-600">{t("drawio.loadingEditor")}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                <DrawIoEmbed
+                                    ref={drawioRef}
+                                    baseUrl={drawioBaseUrl}
+                                    onExport={handleDiagramExport}
+                                    onLoad={handleDrawioLoad}
+                                    urlParameters={{
+                                        spin: true,
+                                        libraries: false,
+                                        saveAndExit: false,
+                                        noExitBtn: true,
+                                    }}
+                                />
+                            </>
+                        )
+                    ) : (
+                        <SvgPreviewPane />
+                    )}
                 </div>
-            </section>
+                {/* 分隔器 - 始终渲染但只在可见时显示 */}
+                <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    onPointerDown={handleResizeChatStart}
+                    className={cn(
+                        "h-full items-center justify-center border-x border-slate-100 bg-white/60 transition hover:bg-slate-100 active:bg-slate-200 cursor-col-resize",
+                        isChatVisible ? "flex" : "hidden",
+                        isResizingChat && "bg-blue-50 border-blue-200"
+                    )}
+                    style={{ width: isChatVisible ? RESIZER_WIDTH : 0 }}
+                >
+                    <div className="h-10 w-1 rounded-full bg-slate-300" />
+                </div>
+                {/* Chat Panel - 始终渲染，通过位置控制显示 */}
+                <div
+                    className={cn(
+                        "h-full min-h-0 p-1 transition-all duration-300",
+                        isChatVisible
+                            ? "opacity-100"
+                            : "opacity-0 pointer-events-none"
+                    )}
+                >
+                    <ChatPanelOptimized
+                        onCollapse={() => setIsChatVisible(false)}
+                        isCollapsible
+                        renderMode={renderMode}
+                        onRenderModeChange={setRenderMode}
+                    />
+                </div>
+            </div>
+        </section>
+    );
+
+    return (
+        <div className="bg-gray-100">
+            {isMobile ? mobileContent : desktopContent}
         </div>
     );
 }

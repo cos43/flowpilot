@@ -47,9 +47,17 @@ export function SvgPreviewPane() {
         };
 
         updateScale();
+
+        // Some mobile webviews (e.g. older WeChat/Android) lack ResizeObserver; fall back to window resize.
+        if (typeof ResizeObserver === "undefined") {
+            window.addEventListener("resize", updateScale);
+            return () => window.removeEventListener("resize", updateScale);
+        }
+
         const observer = new ResizeObserver(() => updateScale());
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
+        const node = containerRef.current;
+        if (node) {
+            observer.observe(node);
         }
         return () => observer.disconnect();
     }, [doc.width, doc.height, svgMarkup, hasRealSvg]);
