@@ -232,14 +232,63 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
             const contentParts = Array.isArray(msg.content)
               ? msg.content
               : [{ type: "text", text: msg.content ?? "" }];
-            const text = contentParts
-              .filter((part: any) => part?.type === "text" && typeof part.text === "string")
-              .map((part: any) => part.text)
-              .join("\n")
-              .trim();
-            return { role, content: text || "(empty)" };
+            
+            // 检查是否有图片内容
+            const hasImage = contentParts.some((part: any) => part?.type === "image");
+            
+            if (hasImage) {
+              // 使用 OpenAI vision 格式支持多模态
+              const content = contentParts.map((part: any) => {
+                if (part.type === "text") {
+                  return {
+                    type: "text",
+                    text: part.text || ""
+                  };
+                } else if (part.type === "image") {
+                  // 获取图片 URL（可能是 part.image 或 part.url）
+                  const imageUrl = part.image || part.url;
+                  if (!imageUrl) return null;
+                  
+                  // 解析 Data URL: data:image/png;base64,iVBORw...
+                  const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+                  if (!match) {
+                    console.warn("无法解析图片 Data URL:", imageUrl.substring(0, 50));
+                    return null;
+                  }
+                  
+                  // 使用 Claude/Anthropic 格式
+                  return {
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: match[1],
+                      data: match[2]
+                    }
+                  };
+                }
+                return null;
+              }).filter(Boolean);
+              
+              return { role, content };
+            } else {
+              // 纯文本消息，保持原有逻辑
+              const text = contentParts
+                .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+                .map((part: any) => part.text)
+                .join("\n")
+                .trim();
+              return { role, content: text || "(empty)" };
+            }
           })
-          .filter((m) => typeof m.content === "string" && m.content.length > 0);
+          .filter((m) => {
+            if (typeof m.content === "string") {
+              return m.content.length > 0;
+            }
+            if (Array.isArray(m.content)) {
+              return m.content.length > 0;
+            }
+            return false;
+          });
 
       const openaiMessages = toOpenAIChatMessages(finalMessages);
       const payload = {
