@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download, ZoomIn, ZoomOut, Maximize2, FileImage, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSvgEditor } from "@/contexts/svg-editor-context";
 import { DEFAULT_WELCOME_SVG } from "@/data/default-welcome-svg";
@@ -69,21 +75,97 @@ export function SvgPreviewPane() {
         });
     }, []);
 
+    const handleSave = useCallback(async (format: "svg" | "png") => {
+        const content = exportSvgMarkup();
+        if (!content) return;
+
+        if (format === "svg") {
+            const blob = new Blob([content], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `flowpilot-export-${Date.now()}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else if (format === "png") {
+            const img = new Image();
+            const blob = new Blob([content], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                // Use higher resolution for better quality
+                const scale = 2;
+                canvas.width = (doc.width || 800) * scale;
+                canvas.height = (doc.height || 600) * scale;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return;
+
+                // Fill white background
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 0, 0);
+
+                const pngUrl = canvas.toDataURL("image/png");
+                const a = document.createElement("a");
+                a.href = pngUrl;
+                a.download = `flowpilot-export-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            img.src = url;
+        }
+    }, [exportSvgMarkup, doc.width, doc.height]);
+
     const content = hasRealSvg && svgMarkup ? svgMarkup : DEFAULT_WELCOME_SVG;
 
     return (
         <div className="relative flex h-full w-full flex-col rounded-xl bg-white">
             <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm">
-                <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                    onClick={() => {
-                        window.dispatchEvent(new CustomEvent("flowpilot:convert-svg"));
-                    }}
-                >
-                    转绘为 draw.io 可编辑
-                </button>
-                <div className="h-5 w-px bg-slate-300"></div>
+                {hasRealSvg && (
+                    <>
+                        <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                            onClick={() => {
+                                window.dispatchEvent(new CustomEvent("flowpilot:convert-svg"));
+                            }}
+                        >
+                            转绘为 draw.io 可编辑
+                        </button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-200 transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    保存
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="center" className="w-36">
+                                <DropdownMenuItem onClick={() => handleSave("svg")} className="gap-2 text-xs">
+                                    <FileCode className="h-3.5 w-3.5 text-slate-500" />
+                                    SVG 矢量图
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSave("png")} className="gap-2 text-xs">
+                                    <FileImage className="h-3.5 w-3.5 text-slate-500" />
+                                    PNG 图片
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <div className="h-5 w-px bg-slate-300"></div>
+                    </>
+                )}
                 <div className="flex items-center gap-1">
                     <button
                         type="button"

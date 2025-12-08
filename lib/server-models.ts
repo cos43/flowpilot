@@ -1,4 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { RuntimeModelConfig } from "@/types/model-config";
 import type { ModelProvider } from "@/lib/model-constants";
 
@@ -14,7 +15,7 @@ export interface ResolvedModel {
 const deriveProvider = (baseUrl: string): ModelProvider => {
     try {
         const hostname = new URL(baseUrl).hostname;
-        if (hostname.includes("googleapis")) {
+        if (hostname.includes("googleapis") || hostname.includes("duckcoding")) {
             return "google";
         }
         if (hostname.includes("openrouter")) {
@@ -41,15 +42,64 @@ export function resolveChatModel(
         throw new Error("模型配置缺失，请先在客户端完成接口配置。");
     }
 
-    const normalizedBaseUrl = runtime.baseUrl.trim().replace(/\/$/, "");
+    const trimmedBaseUrl = runtime.baseUrl.trim();
+    const provider = deriveProvider(trimmedBaseUrl);
+    const label = runtime.label || runtime.modelId;
+    const isGemini = runtime.modelId.toLowerCase().startsWith("gemini-");
+    const isOpenRouter = provider === "openrouter";
 
+    // Special handling for Gemini models via Google-compatible endpoints (not OpenRouter)
+    if (isGemini && !isOpenRouter) {
+        // Google SDK expects base URL to end with /v1beta usually, or we let it handle defaults if standard.
+        // For custom proxies like duckcoding, they often map to the standard Google API structure.
+        // If the user provided a base URL ending in /v1 (common OpenAI style) but it's actually for Google SDK,
+        // we might need to adjust or trust the user provided the correct Google-style base path if they know what they are doing.
+        // However, the provided example `https://jp.duckcoding.com` suggests we might need to append `/v1beta` 
+        // if the SDK doesn't do it automatically, OR the proxy handles it.
+        // The SDK `createGoogleGenerativeAI` takes a `baseURL`. 
+        // Let's assume the user enters the root domain or the OpenAI-compat path.
+        // BUT, we are switching to native Google SDK.
+        // If the user entered `https://jp.duckcoding.com/v1` (OpenAI style), stripping `/v1` might be safer if we want to target the root 
+        // and let the SDK append `/models/...`. 
+        // Actually, for `createGoogleGenerativeAI`, `baseURL` is the API base URL. 
+        // If we use the proxy root `https://jp.duckcoding.com`, the SDK appends `/v1beta` (default) or whatever version.
+
+        let googleBaseUrl = trimmedBaseUrl;
+        // If URL ends in /v1/chat/completions or just /v1, we probably want to strip it to get the root for Google SDK
+        // which constructs its own paths.
+        googleBaseUrl = googleBaseUrl.replace(/\/v1\/chat\/completions\/?$/, "").replace(/\/v1\/?$/, "");
+
+        // Ensure it ends with /v1beta if it's a known proxy that needs it, or just pass the root.
+        // The Google SDK default baseURL is `https://generativelanguage.googleapis.com/v1beta`.
+        // If we pass `https://jp.duckcoding.com`, it effectively replaces the host.
+        // We should append `/v1beta` if the proxy expects it there.
+        // Based on the curl test `https://jp.duckcoding.com/v1beta/models/...`, the base is `https://jp.duckcoding.com/v1beta`.
+
+        if (!googleBaseUrl.endsWith("/v1beta")) {
+            googleBaseUrl = googleBaseUrl.replace(/\/$/, "") + "/v1beta";
+        }
+
+        const google = createGoogleGenerativeAI({
+            apiKey: runtime.apiKey,
+            baseURL: googleBaseUrl,
+        });
+
+        return {
+            id: runtime.modelId,
+            label,
+            description: undefined,
+            provider,
+            slug: runtime.modelId,
+            model: google(runtime.modelId),
+        };
+    }
+
+    // Default to OpenAI compatible client
+    const normalizedBaseUrl = trimmedBaseUrl.replace(/\/$/, "");
     const client = createOpenAI({
         apiKey: runtime.apiKey,
         baseURL: normalizedBaseUrl,
     });
-
-    const provider = deriveProvider(runtime.baseUrl);
-    const label = runtime.label || runtime.modelId;
 
     return {
         id: runtime.modelId,

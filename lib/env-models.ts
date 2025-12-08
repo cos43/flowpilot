@@ -24,17 +24,17 @@ const ENV_MODEL_PREFIX = "__ENV__";
  */
 export function parseDefaultModelsFromEnv(): ModelEndpointConfig[] | null {
     // 在客户端使用 NEXT_PUBLIC_ 前缀的环境变量
-    const envValue = typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_DEFAULT_MODELS 
+    const envValue = typeof window !== 'undefined'
+        ? process.env.NEXT_PUBLIC_DEFAULT_MODELS
         : process.env.NEXT_PUBLIC_DEFAULT_MODELS;
-    
+
     if (!envValue || envValue.trim() === "") {
         return null;
     }
 
     try {
         const parsed = JSON.parse(envValue) as EnvEndpointConfig[];
-        
+
         if (!Array.isArray(parsed) || parsed.length === 0) {
             console.warn("NEXT_PUBLIC_DEFAULT_MODELS is not a valid array");
             return null;
