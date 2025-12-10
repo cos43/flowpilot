@@ -31,14 +31,14 @@ export async function POST(req: Request) {
     // 从模型运行时配置中获取maxDuration，默认300秒
     const requestMaxDuration = (modelRuntime.maxDuration ?? 300) * 1000; // 转换为毫秒
 
-    const outputMode: "drawio" | "svg" =
-      renderMode === "svg" ? "svg" : "drawio";
+    const outputMode: "drawio" | "svg" | "excalidraw" =
+      renderMode === "svg" ? "svg" : renderMode === "excalidraw" ? "excalidraw" : "drawio";
 
     // 获取请求的 AbortSignal，用于取消流式响应
     const abortSignal = req.signal;
 
     const drawioSystemMessage = `
-You are FlowPilot, a draw.io layout lead. Respond by streaming raw draw.io XML text (no tool calls). Each chunk must be independently parsable:
+You are FlowPilot, a draw.io layout lead. Respond by streaming raw draw.io XML text (no tool calls) via the display_diagram tool.
 - Prefer small incremental patches as a WELL-FORMED <root>...</root> block.
 - Full snapshot is also ok: <mxGraphModel><root>...</root></mxGraphModel>.
 - NEVER emit partial/unclosed tags or prose.
@@ -46,7 +46,7 @@ You are FlowPilot, a draw.io layout lead. Respond by streaming raw draw.io XML t
 Priorities (strict order):
 1) Zero XML syntax errors.
 2) Single-viewport layout with no overlaps/occlusion.
-3) Preserve existing semantics; FlowPilot Brief additions are preferences only—if user/brief conflicts with safety, keep XML validity and layout tidy first.
+3) Preserve existing semantics.
 
 Non-negotiable XML rules:
 - Root must start with <mxCell id="0"/> then <mxCell id="1" parent="0"/>.
@@ -56,32 +56,6 @@ Non-negotiable XML rules:
 - Every mxCell (except id="0") needs parent; every mxGeometry needs as="geometry".
 - Unique numeric ids from 2 upward; never reuse.
 - Edges: edge="1", source, target, mxGeometry relative="1" as="geometry", prefer edgeStyle=orthogonalEdgeStyle; add waypoints instead of crossing nodes.
-
-Layout recipe (avoid clutter and blocking):
-- Keep all elements within x 0-800, y 0-600; start around x=40, y=40; align to 24px grid.
-- Maintain spacing: siblings 56-96px vertically, 48-80px horizontally; containers padding >=24px; swimlane gaps >=64px.
-- No overlaps: leave 12-16px breathing room between nodes and labels; keep connectors outside shapes/text.
-- Favor orthogonal connectors with minimal crossings; reroute around nodes and keep labels on straight segments.
-- Highlight 1 clear main path if helpful but never cover text; keep arrows readable, rounded=1, endArrow=block.
-
-Built-in style hints:
-- Use official cloud icons when the user mentions AWS/Azure/GCP (e.g., shape=mxgraph.aws4.compute.ec2_instance, mxgraph.azure.compute.virtual_machine, mxgraph.gcp2017.compute.compute_engine).
-- Use standard infra icons (mxgraph.basic.* or mxgraph.cisco.*) to add clarity, but do not sacrifice spacing.
-- Preserve existing color themes; polish alignment rather than rewriting content.
-
-Tool policy (text-only):
-- Do NOT invoke tools. Stream plain XML only.
-- Each chunk must be self-contained and valid XML: either <root>...</root> patch OR full <mxGraphModel><root>...</root></mxGraphModel>.
-- If the existing graph lacks base cells, include <mxCell id="0"/> and <mxCell id="1" parent="0"/> in the first chunk; later chunks may omit if already present.
-- Reuse ids to update nodes; new elements must have unique ids and proper parents. Every vertex needs mxGeometry(x,y,width,height); every edge needs source/target and mxGeometry relative="1".
-- Keep styles semicolon-separated, ids consistent, and tags properly closed in every chunk.
-
-Preflight checklist before ANY tool call:
-- Root cells 0 and 1 exist.
-- All special characters escaped; no quotes inside quotes.
-- Styles end with semicolons; every tag properly closed with space before /> when self-closing.
-- Geometry present for every vertex/edge; parents set; ids unique; edge sources/targets filled.
-- Coordinates fit 0-800 x 0-600; no overlaps or hidden labels/connectors.
 `;
 
     const svgSystemMessage = `
@@ -90,8 +64,25 @@ You are FlowPilot SVG Studio. Output exactly one complete SVG as plain text (opt
 Rules:
 - Do not emit extra prose beyond the SVG itself; streaming textual SVG is allowed but must end as a valid <svg>.`;
 
+    const excalidrawSystemMessage = `
+You are FlowPilot Excalidraw Expert. Output exactly one valid JSON object representing an Excalidraw scene, wrapped in a fenced \`\`\`json\`\`\` block.
+Do NOT use any tool calls.
+
+Priorities:
+1. Valid JSON syntax (Standard Excalidraw Format).
+2. Clear, hand-drawn style consistency.
+3. Reasonable layout without overlaps.
+
+Important:
+- Use "arrow" type for connections. Use "startBinding" / "endBinding" to attach arrows to shapes.
+- For "line", "arrow", "draw", "freedraw", the "points" array is MANDATORY (e.g. [[0,0], [50,50]]).
+- Ensure all "id"s are unique strings.
+- "groupIds" must be an array of strings if used.
+- Do NOT output conversational text before or after the JSON block.
+`;
+
     const systemMessage =
-      outputMode === "svg" ? svgSystemMessage : drawioSystemMessage;
+      outputMode === "svg" ? svgSystemMessage : outputMode === "excalidraw" ? excalidrawSystemMessage : drawioSystemMessage;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json(
@@ -232,10 +223,10 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
             const contentParts = Array.isArray(msg.content)
               ? msg.content
               : [{ type: "text", text: msg.content ?? "" }];
-            
+
             // 检查是否有图片内容
             const hasImage = contentParts.some((part: any) => part?.type === "image");
-            
+
             if (hasImage) {
               // 使用 OpenAI vision 格式支持多模态
               const content = contentParts.map((part: any) => {
@@ -248,14 +239,14 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
                   // 获取图片 URL（可能是 part.image 或 part.url）
                   const imageUrl = part.image || part.url;
                   if (!imageUrl) return null;
-                  
+
                   // 解析 Data URL: data:image/png;base64,iVBORw...
                   const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
                   if (!match) {
                     console.warn("无法解析图片 Data URL:", imageUrl.substring(0, 50));
                     return null;
                   }
-                  
+
                   // 使用 Claude/Anthropic 格式
                   return {
                     type: "image",
@@ -268,7 +259,7 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
                 }
                 return null;
               }).filter(Boolean);
-              
+
               return { role, content };
             } else {
               // 纯文本消息，保持原有逻辑
@@ -549,7 +540,7 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
       // },
       messages: finalMessages,
       abortSignal: combinedAbortSignal,  // 使用组合的AbortSignal以支持取消请求和超时
-      ...(outputMode === "svg"
+      ...(outputMode === "svg" || outputMode === "excalidraw"
         ? {}
         : {
           tools: {
@@ -616,9 +607,11 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
           
           **IMPORTANT:** The diagram will be rendered to draw.io canvas in REAL-TIME as you stream the XML. The canvas updates automatically during streaming to show live progress.
           `,
-            inputSchema: z.object({
-              xml: z.string().describe("Well-formed XML string following all syntax rules above to be displayed on draw.io")
-            })
+              inputSchema: z.object({
+                xml: z.string().describe(
+                  "Well-formed XML string following all syntax rules above to be displayed on draw.io"
+                )
+              })
             },
             edit_diagram: {
               description: `Edit specific parts of the current diagram by replacing exact line matches. Use this tool to make targeted fixes without regenerating the entire XML.

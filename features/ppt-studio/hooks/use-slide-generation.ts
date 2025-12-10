@@ -5,6 +5,7 @@ import { usePptStudio } from "@/contexts/ppt-studio-context";
 import type { RuntimeModelConfig } from "@/types/model-config";
 import { requestSlideRender } from "../utils/api-client";
 import type { SlideBlueprint } from "@/types/ppt";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 interface UseSlideGenerationOptions {
     modelRuntime?: RuntimeModelConfig;
@@ -20,11 +21,11 @@ interface SlideGenerationResult {
 export function useSlideGeneration({
     modelRuntime,
 }: UseSlideGenerationOptions): {
-    generatePendingSlides: (renderMode?: ("drawio" | "svg")) => Promise<void>;
+    generatePendingSlides: (renderMode?: DiagramRenderingMode) => Promise<void>;
     lastError: string | null;
-    generateSlides: (slideIds?: string[], renderMode?: ("drawio" | "svg")) => Promise<void>;
+    generateSlides: (slideIds?: string[], renderMode?: DiagramRenderingMode) => Promise<void>;
     isRunning: boolean;
-    runGeneration: (targets: SlideBlueprint[], renderMode?: ("drawio" | "svg")) => Promise<void>
+    runGeneration: (targets: SlideBlueprint[], renderMode?: DiagramRenderingMode) => Promise<void>
 } {
     const {
         blueprint,
@@ -50,7 +51,7 @@ export function useSlideGeneration({
     );
 
     const runGeneration = useCallback(
-        async (targets: SlideBlueprint[], renderMode: "drawio" | "svg" = "drawio") => {
+        async (targets: SlideBlueprint[], renderMode: DiagramRenderingMode = "drawio") => {
             if (!blueprint) {
                 throw new Error("尚未生成 PPT 骨架。");
             }
@@ -151,7 +152,7 @@ export function useSlideGeneration({
     );
 
     const generateSlides = useCallback(
-        async (slideIds?: string[], renderMode: "drawio" | "svg" = "drawio") => {
+        async (slideIds?: string[], renderMode: DiagramRenderingMode = "drawio") => {
             if (!blueprint) {
                 throw new Error("尚未生成 PPT 骨架。");
             }
@@ -163,7 +164,7 @@ export function useSlideGeneration({
         [blueprint, slides, runGeneration]
     );
 
-    const generatePendingSlides = useCallback(async (renderMode: "drawio" | "svg" = "drawio") => {
+    const generatePendingSlides = useCallback(async (renderMode: DiagramRenderingMode = "drawio") => {
         if (!blueprint) return;
         const targets = slides.filter((slide) =>
             pendingSlideIds.includes(slide.id)

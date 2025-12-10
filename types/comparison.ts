@@ -27,7 +27,7 @@ export interface ComparisonCardResult {
     summary?: string;
     xml?: string;
     svg?: string;
-    mode?: "drawio" | "svg";
+    mode?: "drawio" | "svg" | "excalidraw";
     encodedXml?: string;
     previewSvg?: string;
     previewImage?: string;

@@ -9,7 +9,7 @@ import {
     ComparisonModelMeta,
     ComparisonResultStatus,
 } from "@/types/comparison";
-import type { DiagramUpdateMeta } from "../types";
+import type { DiagramRenderingMode, DiagramUpdateMeta } from "../types";
 import type { ComparisonNotice } from "../types";
 import { serializeAttachments } from "../utils/attachments";
 import { cloneMessages } from "../utils/messages";
@@ -32,7 +32,7 @@ interface UseComparisonWorkbenchParams {
     messages: Message[];
     modelOptions: RuntimeModelOption[];
     selectedModelKey?: string;
-    renderMode: "drawio" | "svg";
+    renderMode: DiagramRenderingMode;
 }
 
 interface ActivePreview {

@@ -35,7 +35,7 @@ interface ChatMessageDisplayProps {
     setFiles: (files: File[]) => void;
     onDisplayDiagram?: (
         xml: string,
-        meta: { toolCallId?: string; isFinal?: boolean; mode?: "drawio" | "svg" }
+        meta: { toolCallId?: string; isFinal?: boolean; mode?: "drawio" | "svg" | "excalidraw" }
     ) => void | Promise<void>;
     onStreamingText?: (payload: {
         raw: string;
@@ -44,6 +44,7 @@ interface ChatMessageDisplayProps {
         messageId?: string;
         isFinal: boolean;
     }) => void;
+    onStreamingApply?: (content: string, callId: string, mode: "drawio" | "svg" | "excalidraw") => void;
     onComparisonApply?: (result: ComparisonCardResult) => void;
     onComparisonCopyXml?: (xml: string) => void;
     onComparisonDownload?: (result: ComparisonCardResult) => void;
@@ -87,7 +88,7 @@ const DiagramToolCard = memo(({
     isGenerationBusy?: boolean;
     isComparisonRunning?: boolean;
     diagramResult?: DiagramResultEntry;
-    onStreamingApply?: (content: string, callId: string, mode: "drawio" | "svg") => void;
+    onStreamingApply?: (content: string, callId: string, mode: "drawio" | "svg" | "excalidraw") => void;
     onRetry?: () => void;
     messageMetadata?: {
         usage?: {
@@ -109,7 +110,7 @@ const DiagramToolCard = memo(({
     const [showTimeoutHint, setShowTimeoutHint] = useState(false);
     const streamingStartTimeRef = useRef<number | null>(null);
 
-    const diagramMode: "drawio" | "svg" = diagramResult?.mode ?? (toolName === "display_svg" ? "svg" : "drawio");
+    const diagramMode: "drawio" | "svg" | "excalidraw" = diagramResult?.mode ?? (toolName === "display_svg" ? "svg" : "drawio");
     const displaySvg = diagramResult?.svg || (typeof input?.svg === "string" ? input.svg : null);
     const displayDiagramXml = diagramResult?.xml ||
         (typeof input?.xml === "string" ? input.xml : null);
@@ -415,6 +416,7 @@ export function ChatMessageDisplay({
     setFiles,
     onDisplayDiagram,
     onStreamingText,
+    onStreamingApply,
     onComparisonApply,
     onComparisonCopyXml,
     onComparisonDownload,
@@ -445,14 +447,16 @@ export function ChatMessageDisplay({
     const textSvgCacheRef = useRef<Map<string, string>>(new Map());
     const appliedTextDrawioMessageIdsRef = useRef<Set<string>>(new Set());
     const textDrawioCacheRef = useRef<Map<string, string>>(new Map());
+    const appliedTextExcalidrawMessageIdsRef = useRef<Set<string>>(new Set());
+    const textExcalidrawCacheRef = useRef<Map<string, string>>(new Map());
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
     // 流式渲染回调
-    const handleStreamingApply = useCallback((content: string, toolCallId: string, mode: "drawio" | "svg" = "drawio") => {
+    const handleStreamingApply = useCallback((content: string, toolCallId: string, mode: "drawio" | "svg" | "excalidraw" = "drawio") => {
         if (!content || typeof onDisplayDiagram !== "function") {
             return;
         }
-        
+
         // 在流式传输期间，绝对不要调用 expensive 的 convertToLegalXml
         // 该函数的正则在处理未闭合标签时会导致严重的性能回溯，造成浏览器卡死
         // Draw.io 引擎本身对不完整的 XML 有一定的容错能力；SVG 预览也需要最大限度原样透传
@@ -465,7 +469,11 @@ export function ChatMessageDisplay({
                 console.error("流式渲染失败:", error);
             });
         }
-    }, [onDisplayDiagram]);
+        // 调用外部传入的流式应用回调（用于 Excalidraw 等）
+        if (onStreamingApply) {
+            onStreamingApply(finalContent, toolCallId, mode);
+        }
+    }, [onDisplayDiagram, onStreamingApply]);
 
     // 识别滚动容器，并在用户上滑时暂停自动滚动
     useEffect(() => {
@@ -694,6 +702,56 @@ export function ChatMessageDisplay({
                 }
             }
 
+            // Excalidraw JSON Extraction
+            const extractExcalidrawPayload = (text: string) => {
+                // Markdown code block with json tag
+                const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/i);
+                if (fenced?.[1]) {
+                     const content = fenced[1].trim();
+                     if (content.startsWith("{") && (content.includes('"type": "excalidraw"') || content.includes('"elements":'))) {
+                         return content;
+                     }
+                }
+                
+                // Open code block
+                const fencedStart = text.match(/```(?:json)?\s*\n?/i);
+                if (fencedStart) {
+                    const startIdx = (fencedStart.index ?? 0) + fencedStart[0].length;
+                    const rest = text.slice(startIdx).trim();
+                    if (rest.startsWith("{")) {
+                        // Check if it looks like Excalidraw JSON start
+                         if (rest.includes('"type": "excalidraw"') || rest.includes('"elements":') || rest.includes('"version":')) {
+                             return rest;
+                         }
+                    }
+                }
+                return null;
+            };
+
+            const excalidrawPayload = extractExcalidrawPayload(raw);
+            if (excalidrawPayload) {
+                const cachedExcalidraw = textExcalidrawCacheRef.current.get(msg.id);
+                const alreadyFinalExcalidraw = appliedTextExcalidrawMessageIdsRef.current.has(msg.id);
+                const isStreaming = isGenerationBusy;
+                const needsApply = excalidrawPayload !== cachedExcalidraw || (!isStreaming && !alreadyFinalExcalidraw);
+
+                if (needsApply) {
+                    textExcalidrawCacheRef.current.set(msg.id, excalidrawPayload);
+                    const isFinal = !isStreaming;
+                    if (isFinal) {
+                        appliedTextExcalidrawMessageIdsRef.current.add(msg.id);
+                    }
+                    // Pass raw partial JSON to be repaired downstream
+                    onDisplayDiagram(excalidrawPayload, { isFinal, mode: "excalidraw", toolCallId: msg.id });
+                    
+                    // Allow falling through to SVG check? No, usually mutually exclusive.
+                    break; 
+                }
+                 if (!isStreaming && !alreadyFinalExcalidraw && cachedExcalidraw) {
+                    appliedTextExcalidrawMessageIdsRef.current.add(msg.id);
+                }
+            }
+
             // 兼容流式输出：允许缺少结尾 ``` 或闭合 </svg> 的场景
             const extractSvgPayload = (text: string) => {
                 // 完整的围栏代码块
@@ -758,14 +816,28 @@ export function ChatMessageDisplay({
         const reversed = [...messages].reverse();
         for (const msg of reversed) {
             if (msg.role !== "assistant" || !msg.id) continue;
-            const cached = textDrawioCacheRef.current.get(msg.id);
-            if (!cached) continue;
-            const alreadyFinal = appliedTextDrawioMessageIdsRef.current.has(msg.id);
-            if (alreadyFinal) break;
+            
+            // Check DrawIO
+            const cachedDrawio = textDrawioCacheRef.current.get(msg.id);
+            if (cachedDrawio) {
+                const alreadyFinal = appliedTextDrawioMessageIdsRef.current.has(msg.id);
+                if (!alreadyFinal) {
+                    appliedTextDrawioMessageIdsRef.current.add(msg.id);
+                    onDisplayDiagram(cachedDrawio, { isFinal: true, mode: "drawio", toolCallId: msg.id });
+                    break;
+                }
+            }
 
-            appliedTextDrawioMessageIdsRef.current.add(msg.id);
-            onDisplayDiagram(cached, { isFinal: true, mode: "drawio", toolCallId: msg.id });
-            break;
+            // Check Excalidraw
+            const cachedExcalidraw = textExcalidrawCacheRef.current.get(msg.id);
+            if (cachedExcalidraw) {
+                const alreadyFinal = appliedTextExcalidrawMessageIdsRef.current.has(msg.id);
+                if (!alreadyFinal) {
+                    appliedTextExcalidrawMessageIdsRef.current.add(msg.id);
+                    onDisplayDiagram(cachedExcalidraw, { isFinal: true, mode: "excalidraw", toolCallId: msg.id });
+                    break;
+                }
+            }
         }
     }, [isGenerationBusy, messages, onDisplayDiagram]);
 
@@ -1162,21 +1234,21 @@ export function ChatMessageDisplay({
                                                     hasPreview ? (
                                                         <>
                                                             {previewSvg ? (
-                                                                <div 
+                                                                <div
                                                                     className="h-full w-full flex items-center justify-center"
                                                                     dangerouslySetInnerHTML={{ __html: previewSvg }}
                                                                 />
                                                             ) : previewImageSrc ? (
-                                                                    <div className="relative h-full w-full">
-                                                                        <Image
-                                                                            src={previewImageSrc}
-                                                                            alt={`comparison-preview-${cardKey}`}
-                                                                            fill
-                                                                            className="object-contain"
-                                                                            sizes="200px"
-                                                                            unoptimized
-                                                                        />
-                                                                    </div>
+                                                                <div className="relative h-full w-full">
+                                                                    <Image
+                                                                        src={previewImageSrc}
+                                                                        alt={`comparison-preview-${cardKey}`}
+                                                                        fill
+                                                                        className="object-contain"
+                                                                        sizes="200px"
+                                                                        unoptimized
+                                                                    />
+                                                                </div>
                                                             ) : previewUrl ? (
                                                                 <iframe
                                                                     src={previewUrl}
@@ -1434,224 +1506,224 @@ export function ChatMessageDisplay({
         return map;
     }, [comparisonHistory]);
 
-        const renderedAnchors = useRef(new Set<string>());
+    const renderedAnchors = useRef(new Set<string>());
 
-        // Reset renderedAnchors on each render
+    // Reset renderedAnchors on each render
 
-        renderedAnchors.current.clear();
+    renderedAnchors.current.clear();
 
-    
 
-        const showExamplePanel = (
 
-            messages.length === 0 &&
+    const showExamplePanel = (
 
-            leadingComparisons.length === 0 &&
+        messages.length === 0 &&
 
-            comparisonHistory.length === 0
+        leadingComparisons.length === 0 &&
 
-        );
+        comparisonHistory.length === 0
 
-    
+    );
 
-        return (
-            <div className="pr-4">
-                {showExamplePanel ? (
-                    <div className="py-2">
-                        <ExamplePanel
-                            setInput={setInput}
-                            setFiles={setFiles}
-                        />
-                    </div>
-                ) : (
-                    <>
 
-                        {leadingComparisons.map((entry, index) => (
+
+    return (
+        <div className="pr-4">
+            {showExamplePanel ? (
+                <div className="py-2">
+                    <ExamplePanel
+                        setInput={setInput}
+                        setFiles={setFiles}
+                    />
+                </div>
+            ) : (
+                <>
+
+                    {leadingComparisons.map((entry, index) => (
+
+                        <div
+
+                            key={`comparison-leading-${index}`}
+
+                            className="mb-5 text-left"
+
+                        >
+
+                            {renderComparisonEntry(entry, `comparison-leading-${index}`)}
+
+                        </div>
+
+                    ))}
+
+                    {messages.map((message) => {
+
+                        const isUser = message.role === "user";
+
+                        const parts = Array.isArray(message.parts) ? message.parts : [];
+
+                        const toolParts = parts.filter((part: any) =>
+
+                            part.type?.startsWith("tool-")
+
+                        );
+
+                        const contentParts = parts.filter(
+
+                            (part: any) => !part.type?.startsWith("tool-")
+
+                        );
+
+                        const augmentedContentParts = contentParts.flatMap((part: any) => {
+
+                            if (part.type === "text") {
+
+                                const rawText = stripThink(part.text ?? "");
+                                // 尝试匹配 markdown 代码块中的 SVG（支持多种换行符）
+                                const codeBlockMatch = rawText.match(/```svg\s*\n([\s\S]*?)```/i);
+                                // 如果代码块匹配失败，且文本中包含 <svg 标签，尝试直接提取 SVG 内容
+                                let svgPayload = codeBlockMatch?.[1];
+
+                                if (!svgPayload && rawText.includes("<svg")) {
+                                    // 尝试提取从 <svg 到 </svg> 的内容
+                                    const svgMatch = rawText.match(/(<svg[\s\S]*?<\/svg>)/i);
+                                    if (svgMatch) {
+                                        svgPayload = svgMatch[1];
+                                    }
+                                }
+
+                                const dataUrl = svgPayload ? svgToDataUrl(svgPayload.trim()) : null;
+                                const base = {
+                                    ...part,
+                                    displayText:
+                                        part.displayText ??
+                                        (rawText.trim().length > 0 ? rawText : "SVG 转绘请求"),
+                                };
+                                if (dataUrl) {
+                                    return [
+                                        base,
+                                        { type: "file", url: dataUrl, mediaType: "image/svg+xml" },
+                                    ];
+                                }
+                            }
+
+                            return [part];
+
+                        });
+
+                        const displayableContentParts = augmentedContentParts.filter((part: any) => {
+
+                            if (part.type === "text") {
+
+                                const textToShow = (part.displayText ?? part.text ?? "").trim();
+
+                                return textToShow.length > 0;
+
+                            }
+
+                            return true;
+
+                        });
+
+                        const fallbackText =
+
+                            augmentedContentParts.length === 0 ? resolveMessageText(message) : "";
+
+                        const hasBubbleContent =
+
+                            displayableContentParts.length > 0 || fallbackText.length > 0;
+
+
+
+                        const anchoredEntries = anchoredComparisons.get(message.id) ?? [];
+
+                        if (anchoredEntries.length > 0) {
+
+                            renderedAnchors.current.add(message.id);
+
+                        }
+
+
+
+                        const fullMessageText = resolveMessageText(message);
+
+                        const isExpanded = expandedMessages[message.id] ?? !(fullMessageText.length > 500);
+
+                        const isCopied = copiedMessageId === message.id;
+
+
+
+                        return (
+
+                            <MessageItem
+
+                                key={message.id}
+
+                                message={message}
+
+                                isUser={isUser}
+
+                                isExpanded={isExpanded}
+
+                                isCopied={isCopied}
+
+                                fullMessageText={fullMessageText}
+
+                                displayableContentParts={displayableContentParts}
+
+                                fallbackText={fallbackText}
+
+                                hasBubbleContent={hasBubbleContent}
+
+                                toolParts={toolParts}
+
+                                anchoredEntries={anchoredEntries}
+
+                                renderToolPart={renderToolPart}
+
+                                renderComparisonEntry={renderComparisonEntry}
+
+                                onCopyMessage={handleCopyMessage}
+
+                                onToggleExpanded={toggleMessageExpanded}
+
+                                onMessageRevert={onMessageRevert}
+
+                            />
+
+                        );
+
+                    })}
+
+                    {Array.from(anchoredComparisons.entries())
+
+                        .filter(([anchorId]) => !renderedAnchors.current.has(anchorId))
+
+                        .flatMap(([, entries]) => entries)
+
+                        .map((entry, index) => (
 
                             <div
 
-                                key={`comparison-leading-${index}`}
+                                key={`comparison-orphan-${entry.requestId}-${index}`}
 
                                 className="mb-5 text-left"
 
                             >
 
-                                {renderComparisonEntry(entry, `comparison-leading-${index}`)}
+                                {renderComparisonEntry(
+
+                                    entry,
+
+                                    `comparison-orphan-${entry.requestId}-${index}`
+
+                                )}
 
                             </div>
 
                         ))}
 
-                        {messages.map((message) => {
+                </>
 
-                            const isUser = message.role === "user";
-
-                            const parts = Array.isArray(message.parts) ? message.parts : [];
-
-                            const toolParts = parts.filter((part: any) =>
-
-                                part.type?.startsWith("tool-")
-
-                            );
-
-                            const contentParts = parts.filter(
-
-                                (part: any) => !part.type?.startsWith("tool-")
-
-                            );
-
-                            const augmentedContentParts = contentParts.flatMap((part: any) => {
-
-                                if (part.type === "text") {
-
-                                    const rawText = stripThink(part.text ?? "");
-                                    // 尝试匹配 markdown 代码块中的 SVG（支持多种换行符）
-                                    const codeBlockMatch = rawText.match(/```svg\s*\n([\s\S]*?)```/i);
-                                    // 如果代码块匹配失败，且文本中包含 <svg 标签，尝试直接提取 SVG 内容
-                                    let svgPayload = codeBlockMatch?.[1];
-                                    
-                                    if (!svgPayload && rawText.includes("<svg")) {
-                                        // 尝试提取从 <svg 到 </svg> 的内容
-                                        const svgMatch = rawText.match(/(<svg[\s\S]*?<\/svg>)/i);
-                                        if (svgMatch) {
-                                            svgPayload = svgMatch[1];
-                                        }
-                                    }
-                                    
-                                    const dataUrl = svgPayload ? svgToDataUrl(svgPayload.trim()) : null;
-                                    const base = {
-                                        ...part,
-                                        displayText:
-                                            part.displayText ??
-                                            (rawText.trim().length > 0 ? rawText : "SVG 转绘请求"),
-                                    };
-                                    if (dataUrl) {
-                                        return [
-                                            base,
-                                            { type: "file", url: dataUrl, mediaType: "image/svg+xml" },
-                                        ];
-                                    }
-                                }
-
-                                return [part];
-
-                            });
-
-                            const displayableContentParts = augmentedContentParts.filter((part: any) => {
-
-                                if (part.type === "text") {
-
-                                    const textToShow = (part.displayText ?? part.text ?? "").trim();
-
-                                    return textToShow.length > 0;
-
-                                }
-
-                                return true;
-
-                            });
-
-                            const fallbackText =
-
-                                augmentedContentParts.length === 0 ? resolveMessageText(message) : "";
-
-                            const hasBubbleContent =
-
-                                displayableContentParts.length > 0 || fallbackText.length > 0;
-
-                            
-
-                            const anchoredEntries = anchoredComparisons.get(message.id) ?? [];
-
-                            if (anchoredEntries.length > 0) {
-
-                                renderedAnchors.current.add(message.id);
-
-                            }
-
-    
-
-                            const fullMessageText = resolveMessageText(message);
-
-                            const isExpanded = expandedMessages[message.id] ?? !(fullMessageText.length > 500);
-
-                            const isCopied = copiedMessageId === message.id;
-
-    
-
-                            return (
-
-                                <MessageItem
-
-                                    key={message.id}
-
-                                    message={message}
-
-                                    isUser={isUser}
-
-                                    isExpanded={isExpanded}
-
-                                    isCopied={isCopied}
-
-                                    fullMessageText={fullMessageText}
-
-                                    displayableContentParts={displayableContentParts}
-
-                                    fallbackText={fallbackText}
-
-                                    hasBubbleContent={hasBubbleContent}
-
-                                    toolParts={toolParts}
-
-                                    anchoredEntries={anchoredEntries}
-
-                                    renderToolPart={renderToolPart}
-
-                                    renderComparisonEntry={renderComparisonEntry}
-
-                                    onCopyMessage={handleCopyMessage}
-
-                                    onToggleExpanded={toggleMessageExpanded}
-
-                                    onMessageRevert={onMessageRevert}
-
-                                />
-
-                            );
-
-                        })}
-
-                        {Array.from(anchoredComparisons.entries())
-
-                            .filter(([anchorId]) => !renderedAnchors.current.has(anchorId))
-
-                            .flatMap(([, entries]) => entries)
-
-                            .map((entry, index) => (
-
-                                <div
-
-                                    key={`comparison-orphan-${entry.requestId}-${index}`}
-
-                                    className="mb-5 text-left"
-
-                                >
-
-                                    {renderComparisonEntry(
-
-                                        entry,
-
-                                        `comparison-orphan-${entry.requestId}-${index}`
-
-                                    )}
-
-                                </div>
-
-                            ))}
-
-                    </>
-
-                )}
+            )}
             {/* 显示生成中的 loading 提示 */}
             {isGenerationBusy && !hasLiveToolCard && (() => {
                 // 格式化耗时显示
@@ -1659,7 +1731,7 @@ export function ChatMessageDisplay({
                     const seconds = Math.floor(ms / 1000);
                     const minutes = Math.floor(seconds / 60);
                     const remainingSeconds = seconds % 60;
-                    
+
                     if (minutes > 0) {
                         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
                     }

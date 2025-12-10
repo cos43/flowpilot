@@ -10,9 +10,10 @@ import { useDrawioDiagnostics } from "@/hooks/use-drawio-diagnostics";
 import { WorkspaceNav } from "@/components/workspace-nav";
 import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 import { SvgPreviewPane } from "@/components/svg-preview-pane";
+import { ExcalidrawEditor } from "@/components/excalidraw-editor";
 
 export default function Home() {
-    const { drawioRef, handleDiagramExport, setRuntimeError } = useDiagram();
+    const { drawioRef, handleDiagramExport, setRuntimeError, excalidrawJson, setExcalidrawJson } = useDiagram();
     const { t } = useLocale();
     const [isMobile, setIsMobile] = useState(false);
     const [drawioError, setDrawioError] = useState<string | null>(null);
@@ -273,6 +274,43 @@ export default function Home() {
                                 />
                             </>
                         )
+                    ) : renderMode === "excalidraw" ? (
+                        <div className="h-full w-full bg-white">
+                            <ExcalidrawEditor
+                                initialData={(() => {
+                                    if (!excalidrawJson) {
+                                        console.log("[Page] No excalidrawJson, using undefined");
+                                        return undefined;
+                                    }
+                                    try {
+                                        const parsed = JSON.parse(excalidrawJson);
+                                        console.log("[Page] Passing initialData to ExcalidrawEditor:", {
+                                            elementsCount: parsed.elements?.length,
+                                            hasAppState: !!parsed.appState
+                                        });
+                                        return parsed;
+                                    } catch (e) {
+                                        console.error("[Page] Failed to parse excalidrawJson:", e);
+                                        return undefined;
+                                    }
+                                })()}
+                                onChange={(elements, appState) => {
+                                    // 只在用户实际编辑时保存，避免循环更新
+                                    const newJson = JSON.stringify({ elements, appState });
+                                    
+                                    // 避免不必要的状态更新
+                                    if (newJson !== excalidrawJson) {
+                                        console.log("[Page] Excalidraw onChange - saving:", {
+                                            elementsCount: elements.length,
+                                            jsonLength: newJson.length
+                                        });
+                                        setExcalidrawJson(newJson);
+                                    } else {
+                                        console.log("[Page] Excalidraw onChange - no change, skipping save");
+                                    }
+                                }}
+                            />
+                        </div>
                     ) : (
                         <SvgPreviewPane />
                     )}

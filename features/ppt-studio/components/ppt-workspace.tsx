@@ -13,6 +13,7 @@ import { requestPptBlueprint } from "../utils/api-client";
 import type { RuntimeModelOption } from "@/types/model-config";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 interface PptWorkspaceProps {
     models: RuntimeModelOption[];
@@ -54,7 +55,7 @@ export function PptWorkspace({
     const [renderError, setRenderError] = useState<string | null>(null);
     const [isBundling, setIsBundling] = useState(false);
     const [isExportingPptx, setIsExportingPptx] = useState(false);
-    const [renderMode, setRenderMode] = useState<"drawio" | "svg">("drawio");
+    const [renderMode, setRenderMode] = useState<DiagramRenderingMode>("drawio");
 
     const {
         generateSlides,

@@ -6,6 +6,7 @@ import type {
     StyleOverrides,
 } from "@/types/ppt";
 import type { RuntimeModelConfig } from "@/types/model-config";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 export interface BlueprintRequestPayload {
     brief: PptBrief;
@@ -31,7 +32,7 @@ export interface SlideRenderPayload {
     blueprintContext: SlideRenderContext;
     styleLocks: StyleOverrides;
     modelRuntime: RuntimeModelConfig;
-    renderMode?: "drawio" | "svg";
+    renderMode?: DiagramRenderingMode;
 }
 
 export async function requestPptBlueprint({

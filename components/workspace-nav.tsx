@@ -23,14 +23,21 @@ export function WorkspaceNav({ className }: WorkspaceNavProps) {
         icon: typeof Workflow;
         badge?: string;
     }> = [
-        {
-            id: "diagram",
-            href: "/",
-            label: t("nav.workspace"),
-            description: "FlowPilot Studio",
-            icon: Workflow,
-        },
-    ];
+            {
+                id: "diagram",
+                href: "/",
+                label: t("nav.workspace"),
+                description: "FlowPilot Studio",
+                icon: Workflow,
+            },
+            {
+                id: "changelog",
+                href: "/changelog",
+                label: "更新日志",
+                description: "FlowPilot Updates",
+                icon: Sparkles, // Or use History icon if imported, sticking to Sparkles or adding another import
+            },
+        ];
 
     return (
         <div

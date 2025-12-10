@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { RuntimeModelConfig } from "@/types/model-config";
 
 export type ToolPanel = "brief" | "actions" | "converter" | "starter";
-export type DiagramRenderingMode = "drawio" | "svg";
+export type DiagramRenderingMode = "drawio" | "svg" | "excalidraw";
 
 export interface ToolbarActionDefinition {
     label: string;

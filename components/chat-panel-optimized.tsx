@@ -1,7 +1,7 @@
 "use client";
 
-import {useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {FaGithub} from "react-icons/fa";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FaGithub } from "react-icons/fa";
 import Link from "next/link";
 import {
     AlertCircle,
@@ -28,7 +28,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -36,18 +36,19 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import {useChat} from "@ai-sdk/react";
-import {DefaultChatTransport} from "ai";
-import {ChatInputOptimized} from "@/components/chat-input-optimized";
-import {ChatMessageDisplay} from "./chat-message-display-optimized";
-import {useDiagram} from "@/contexts/diagram-context";
-import {useConversationManager} from "@/contexts/conversation-context";
-import {useSvgEditor} from "@/contexts/svg-editor-context";
-import {cn, formatXML, replaceXMLParts, convertToLegalXml, replaceNodes} from "@/lib/utils";
-import {buildSvgRootXml, repairSvg, svgToDataUrl} from "@/lib/svg";
-import {SessionStatus} from "@/components/session-status";
-import {QuickActionBar} from "@/components/quick-action-bar";
-import type {QuickActionDefinition} from "@/components/quick-action-bar";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { ChatInputOptimized } from "@/components/chat-input-optimized";
+import { ChatMessageDisplay } from "./chat-message-display-optimized";
+import { useDiagram } from "@/contexts/diagram-context";
+import { useConversationManager } from "@/contexts/conversation-context";
+import { useSvgEditor } from "@/contexts/svg-editor-context";
+import { cn, formatXML, replaceXMLParts, convertToLegalXml, replaceNodes } from "@/lib/utils";
+import { buildSvgRootXml, repairSvg, svgToDataUrl } from "@/lib/svg";
+import { safeParsePartialJson } from "@/lib/json-repair";
+import { SessionStatus } from "@/components/session-status";
+import { QuickActionBar } from "@/components/quick-action-bar";
+import type { QuickActionDefinition } from "@/components/quick-action-bar";
 
 import {
     FlowPilotBriefLauncher,
@@ -60,11 +61,11 @@ import {
     DIAGRAM_TYPE_OPTIONS,
     FLOWPILOT_FREEFORM_PROMPT,
 } from "./flowpilot-brief";
-import {ReportBlueprintTray} from "./report-blueprint-tray";
-import {useChatState} from "@/hooks/use-chat-state";
-import {EMPTY_MXFILE} from "@/lib/diagram-templates";
-import {ModelComparisonConfigDialog} from "@/components/model-comparison-config-dialog";
-import {ToolPanelSidebar} from "@/features/chat-panel/components/tool-panel-sidebar";
+import { ReportBlueprintTray } from "./report-blueprint-tray";
+import { useChatState } from "@/hooks/use-chat-state";
+import { EMPTY_MXFILE } from "@/lib/diagram-templates";
+import { ModelComparisonConfigDialog } from "@/components/model-comparison-config-dialog";
+import { ToolPanelSidebar } from "@/features/chat-panel/components/tool-panel-sidebar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -73,21 +74,21 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {QUICK_ACTIONS, TOOLBAR_ACTIONS, TOOLBAR_PANELS} from "@/features/chat-panel/constants";
-import {useComparisonWorkbench} from "@/features/chat-panel/hooks/use-comparison-workbench";
-import {useDiagramOrchestrator} from "@/features/chat-panel/hooks/use-diagram-orchestrator";
-import type {DiagramRenderingMode, DiagramResultEntry, DiagramUpdateMeta, ToolPanel} from "@/features/chat-panel/types";
-import {serializeAttachments} from "@/features/chat-panel/utils/attachments";
-import {useModelRegistry} from "@/hooks/use-model-registry";
-import {ModelConfigDialog} from "@/components/model-config-dialog";
-import {ConversationHistoryDialog} from "@/components/conversation-history-dialog";
-import {DiagramGalleryDialog} from "@/components/diagram-gallery-dialog";
-import {useConversationHistory, type ConversationHistoryItem} from "@/hooks/use-conversation-history";
-import type {RuntimeModelConfig} from "@/types/model-config";
-import {TemplateGallery} from "@/components/template-gallery";
-import {BriefQuickControl} from "@/components/brief-quick-control";
-import {RenderModeToggle} from "@/components/render-mode-toggle";
-import {SmartSvgConverterDialog} from "@/components/smart-svg-converter-dialog";
+import { QUICK_ACTIONS, TOOLBAR_ACTIONS, TOOLBAR_PANELS } from "@/features/chat-panel/constants";
+import { useComparisonWorkbench } from "@/features/chat-panel/hooks/use-comparison-workbench";
+import { useDiagramOrchestrator } from "@/features/chat-panel/hooks/use-diagram-orchestrator";
+import type { DiagramRenderingMode, DiagramResultEntry, DiagramUpdateMeta, ToolPanel } from "@/features/chat-panel/types";
+import { serializeAttachments } from "@/features/chat-panel/utils/attachments";
+import { useModelRegistry } from "@/hooks/use-model-registry";
+import { ModelConfigDialog } from "@/components/model-config-dialog";
+import { ConversationHistoryDialog } from "@/components/conversation-history-dialog";
+import { DiagramGalleryDialog } from "@/components/diagram-gallery-dialog";
+import { useConversationHistory, type ConversationHistoryItem } from "@/hooks/use-conversation-history";
+import type { RuntimeModelConfig } from "@/types/model-config";
+import { TemplateGallery } from "@/components/template-gallery";
+import { BriefQuickControl } from "@/components/brief-quick-control";
+import { RenderModeToggle } from "@/components/render-mode-toggle";
+import { SmartSvgConverterDialog } from "@/components/smart-svg-converter-dialog";
 
 interface ChatPanelProps {
     onCollapse?: () => void;
@@ -97,11 +98,11 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanelOptimized({
-                                               onCollapse,
-                                               isCollapsible = false,
-                                               renderMode: controlledRenderMode,
-                                               onRenderModeChange,
-                                           }: ChatPanelProps) {
+    onCollapse,
+    isCollapsible = false,
+    renderMode: controlledRenderMode,
+    onRenderModeChange,
+}: ChatPanelProps) {
     const {
         loadDiagram: onDisplayChart,
         loadDiagramImmediate,
@@ -113,6 +114,8 @@ export default function ChatPanelOptimized({
         fetchDiagramData,
         runtimeError,
         setRuntimeError,
+        loadExcalidraw,
+        excalidrawJson,
     } = useDiagram();
     const {
         loadSvgMarkup,
@@ -156,7 +159,7 @@ export default function ChatPanelOptimized({
         updateActiveBranchDiagram,
         resetActiveBranch,
     } = useConversationManager();
-    const {handleDiagramXml, tryApplyRoot, applyRootPatch, updateLatestDiagramXml, getLatestDiagramXml} =
+    const { handleDiagramXml, tryApplyRoot, applyRootPatch, updateLatestDiagramXml, getLatestDiagramXml } =
         useDiagramOrchestrator({
             chartXML,
             onDisplayChart,
@@ -271,17 +274,25 @@ export default function ChatPanelOptimized({
             if (isSvgMode) {
                 return exportSvgMarkup();
             }
+            if (renderMode === "excalidraw") {
+                // Return Excalidraw JSON if available, or empty string
+                return excalidrawJson || "";
+            }
             const rawXml = await fetchDiagramXml(options);
             const formatted = formatXML(rawXml);
             updateLatestDiagramXml(formatted);
             return formatted;
         },
-        [isSvgMode, exportSvgMarkup, fetchDiagramXml, updateLatestDiagramXml]
+        [isSvgMode, renderMode, exportSvgMarkup, fetchDiagramXml, updateLatestDiagramXml, excalidrawJson]
     );
 
     const onFetchChart = useCallback(async () => {
+        if (renderMode === "excalidraw") {
+            // For now, access the excalidrawJson directly from the hook result we have in scope
+            return excalidrawJson || "";
+        }
         return fetchAndFormatDiagram();
-    }, [fetchAndFormatDiagram]);
+    }, [renderMode, excalidrawJson, fetchAndFormatDiagram]);
 
     const {
         isReady: isModelRegistryReady,
@@ -327,7 +338,7 @@ export default function ChatPanelOptimized({
                     ...endpoint,
                     models: endpoint.models.map(model => {
                         if (model.id === modelId) {
-                            return {...model, isStreaming, updatedAt: Date.now()};
+                            return { ...model, isStreaming, updatedAt: Date.now() };
                         }
                         return model;
                     }),
@@ -475,7 +486,7 @@ export default function ChatPanelOptimized({
                     .join("\\n")}`
                 : "";
 
-        return {prompt, badges, mode: briefMode};
+        return { prompt, badges, mode: briefMode };
     }, [briefMode, briefState]);
     const {
         messages,
@@ -490,9 +501,9 @@ export default function ChatPanelOptimized({
             transport: new DefaultChatTransport({
                 api: "/api/chat",
             }),
-            async onToolCall({toolCall}) {
+            async onToolCall({ toolCall }) {
                 if (toolCall.toolName === "display_diagram") {
-                    const {xml} = toolCall.input as { xml?: string };
+                    const { xml } = toolCall.input as { xml?: string };
                     try {
                         if (!xml || typeof xml !== "string" || !xml.trim()) {
                             throw new Error("大模型返回的 XML 为空，无法渲染。");
@@ -505,7 +516,7 @@ export default function ChatPanelOptimized({
                         if (xml.trim().startsWith("<svg") || xml.trim().startsWith("<?xml")) {
                             try {
                                 // 尝试作为 SVG 处理
-                                const {rootXml} = buildSvgRootXml(xml);
+                                const { rootXml } = buildSvgRootXml(xml);
                                 finalXml = rootXml;
                                 isSvgContent = true;
                                 console.log("Detected SVG content in display_diagram, wrapped as DrawIO image.");
@@ -518,7 +529,22 @@ export default function ChatPanelOptimized({
                         // 立即渲染到画布
                         // 在 SVG 模式下也强制走 draw.io 渲染，避免被 SVG 编辑器截流
                         const cleanXml = convertToLegalXml(finalXml);
-                        if (isSvgMode) {
+
+                        // Handle Excalidraw mode
+                        if (renderMode === "excalidraw") {
+                            // If content looks like JSON, load it directly
+                            if (cleanXml.trim().startsWith("{")) {
+                                loadExcalidraw(cleanXml);
+                            } else {
+                                // If it's XML but we are in Excalidraw mode, maybe switch to DrawIO?
+                                // For now, let's switch to drawio to view XML content
+                                handleRenderModeChange("drawio");
+                                await handleDiagramXml(cleanXml, {
+                                    origin: "display",
+                                    modelRuntime: selectedModel ?? undefined,
+                                });
+                            }
+                        } else if (isSvgMode) {
                             handleRenderModeChange("drawio");
                             setStreamingSvgContent(null);
                             await handleDiagramXml(cleanXml, {
@@ -536,9 +562,8 @@ export default function ChatPanelOptimized({
                         console.log("Saving diagram to gallery:", toolCall.toolCallId, cleanXml.slice(0, 50));
                         diagramResultsRef.current.set(toolCall.toolCallId, {
                             xml: cleanXml,
-                            mode: isSvgContent ? "drawio" : "drawio", // 仍然是 drawio 模式，因为是在 drawio 画布上渲染
+                            mode: isSvgContent ? "svg" : (cleanXml.trim().startsWith("{") ? "excalidraw" : "drawio"),
                             runtime: selectedModel ?? undefined,
-                            // 如果是 SVG 内容，我们也保存原始 SVG 以备不时之需（虽然 gallery 主要用 xml/svg 快照）
                             svg: isSvgContent ? xml : undefined
                         });
                         setDiagramResultVersion((prev) => prev + 1);
@@ -546,7 +571,7 @@ export default function ChatPanelOptimized({
                         // 延迟获取 SVG 快照用于画廊展示
                         setTimeout(async () => {
                             try {
-                                const {svg} = await fetchDiagramData({saveHistory: false});
+                                const { svg } = await fetchDiagramData({ saveHistory: false });
                                 const current = diagramResultsRef.current.get(toolCall.toolCallId);
                                 if (current) {
                                     diagramResultsRef.current.set(toolCall.toolCallId, {
@@ -587,7 +612,7 @@ export default function ChatPanelOptimized({
                         });
                     }
                 } else if (toolCall.toolName === "display_svg") {
-                    const {svg} = toolCall.input as { svg?: string };
+                    const { svg } = toolCall.input as { svg?: string };
                     try {
                         if (!svg || typeof svg !== "string" || !svg.trim()) {
                             throw new Error("大模型返回的 SVG 为空，无法渲染。");
@@ -614,7 +639,7 @@ export default function ChatPanelOptimized({
                             return;
                         }
 
-                        const {rootXml} = buildSvgRootXml(svg);
+                        const { rootXml } = buildSvgRootXml(svg);
 
                         await handleCanvasUpdate(rootXml, {
                             origin: "display",
@@ -656,13 +681,13 @@ export default function ChatPanelOptimized({
                         });
                     }
                 } else if (toolCall.toolName === "edit_diagram") {
-                    const {edits} = toolCall.input as {
+                    const { edits } = toolCall.input as {
                         edits: Array<{ search: string; replace: string }>;
                     };
 
                     let currentXml = "";
                     try {
-                        currentXml = await fetchAndFormatDiagram({saveHistory: false});
+                        currentXml = await fetchAndFormatDiagram({ saveHistory: false });
                         const editedXml = replaceXMLParts(currentXml, edits);
 
                         // replaceXMLParts 返回完整的 XML，直接应用到画布
@@ -806,7 +831,7 @@ export default function ChatPanelOptimized({
             const streamingFlag = selectedModel?.isStreaming ?? false;
 
             sendMessage(
-                {parts: lastUserMessage.parts || []},
+                { parts: lastUserMessage.parts || [] },
                 {
                     body: {
                         xml: chartXml,
@@ -853,15 +878,15 @@ export default function ChatPanelOptimized({
                 | { type: "text"; text: string; displayText?: string }
                 | { type: "file"; url: string; mediaType: string }
             > = [
-                {
-                    type: "text",
-                    text: `${prompt}\n\nSVG content:\n\`\`\`svg\n${svgContent}\n\`\`\``,
-                    displayText: "请将这份 SVG 转绘为 Draw.io 图表",
-                },
-            ];
+                    {
+                        type: "text",
+                        text: `${prompt}\n\nSVG content:\n\`\`\`svg\n${svgContent}\n\`\`\``,
+                        displayText: "请将这份 SVG 转绘为 Draw.io 图表",
+                    },
+                ];
 
             sendMessage(
-                {parts},
+                { parts },
                 {
                     body: {
                         xml: chartXml,
@@ -993,11 +1018,11 @@ export default function ChatPanelOptimized({
                 const parts: Array<
                     | { type: "text"; text: string; displayText?: string }
                     | { type: "file"; url: string; mediaType: string }
-                > = [{type: "text", text: enrichedInput, displayText: input}];
+                > = [{ type: "text", text: enrichedInput, displayText: input }];
 
                 if (files.length > 0) {
                     const attachments = await serializeAttachments(files);
-                    attachments.forEach(({url, mediaType}) => {
+                    attachments.forEach(({ url, mediaType }) => {
                         parts.push({
                             type: "file",
                             url,
@@ -1007,7 +1032,7 @@ export default function ChatPanelOptimized({
                 }
 
                 sendMessage(
-                    {parts},
+                    { parts },
                     {
                         body: {
                             xml: chartXml,
@@ -1272,7 +1297,7 @@ export default function ChatPanelOptimized({
     ]);
 
     const handleMessageRevert = useCallback(
-        ({messageId, text}: { messageId: string; text: string }) => {
+        ({ messageId, text }: { messageId: string; text: string }) => {
             const targetIndex = messages.findIndex(
                 (message) => message.id === messageId
             );
@@ -1324,7 +1349,7 @@ export default function ChatPanelOptimized({
                 <FlowPilotBriefLauncher
                     state={briefState}
                     onChange={(next) =>
-                        setBriefState((prev) => ({...prev, ...next}))
+                        setBriefState((prev) => ({ ...prev, ...next }))
                     }
                     disabled={status === "streaming"}
                     badges={briefContext.badges}
@@ -1440,7 +1465,7 @@ export default function ChatPanelOptimized({
                         className="flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl backdrop-blur-xl bg-white/60 border border-white/40 px-2.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.4)]">
                         <div className="flex flex-wrap items-center gap-1.5">
                             {TOOLBAR_PANELS.map((panel) => {
-                                const {label, icon: Icon} = TOOLBAR_ACTIONS[panel];
+                                const { label, icon: Icon } = TOOLBAR_ACTIONS[panel];
                                 const isActive = activeToolPanel === panel && isToolSidebarOpen;
                                 return (
                                     <button
@@ -1455,7 +1480,7 @@ export default function ChatPanelOptimized({
                                         )}
                                         title={label}
                                     >
-                                        <Icon className="h-3.5 w-3.5"/>
+                                        <Icon className="h-3.5 w-3.5" />
                                         <span className="leading-none">{label}</span>
                                     </button>
                                 );
@@ -1466,7 +1491,7 @@ export default function ChatPanelOptimized({
                                 className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-slate-700 transition-all duration-200 hover:bg-white/40 active:scale-95"
                                 title="历史记录"
                             >
-                                <History className="h-3.5 w-3.5"/>
+                                <History className="h-3.5 w-3.5" />
                                 <span className="leading-none">历史记录</span>
                             </button>
                             <a
@@ -1476,7 +1501,7 @@ export default function ChatPanelOptimized({
                                 className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-slate-700 transition-all duration-200 hover:bg-white/40 active:scale-95"
                                 title="GitHub"
                             >
-                                <FaGithub className="h-3.5 w-3.5"/>
+                                <FaGithub className="h-3.5 w-3.5" />
                                 <span className="leading-none">GitHub</span>
                             </a>
                         </div>
@@ -1487,7 +1512,7 @@ export default function ChatPanelOptimized({
                                         type="button"
                                         className="inline-flex h-8 items-center gap-1 rounded-full px-3 text-[12px] font-medium text-slate-700 transition-all duration-200 hover:bg-white/40 active:scale-95"
                                     >
-                                        <MoreHorizontal className="h-4 w-4"/>
+                                        <MoreHorizontal className="h-4 w-4" />
                                         <span className="hidden sm:inline">更多</span>
                                     </button>
                                 </DropdownMenuTrigger>
@@ -1499,39 +1524,39 @@ export default function ChatPanelOptimized({
                                             toggleToolPanel("actions");
                                         }}
                                     >
-                                        <FileText className="mr-2 h-4 w-4"/>
+                                        <FileText className="mr-2 h-4 w-4" />
                                         模板库
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => toggleToolPanel("brief")}>
-                                        <Sparkles className="mr-2 h-4 w-4"/>
+                                        <Sparkles className="mr-2 h-4 w-4" />
                                         配置（Brief）
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleOpenSvgConvert}>
-                                        <Sparkles className="mr-2 h-4 w-4"/>
+                                        <Sparkles className="mr-2 h-4 w-4" />
                                         转绘为 draw.io
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator/>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuLabel>记录</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={handleShowConversationHistory}>
-                                        <History className="mr-2 h-4 w-4"/>
+                                        <History className="mr-2 h-4 w-4" />
                                         对话历史
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleShowDiagramGallery}>
-                                        <LayoutGrid className="mr-2 h-4 w-4"/>
+                                        <LayoutGrid className="mr-2 h-4 w-4" />
                                         图表画廊
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setIsComparisonConfigOpen(true)}>
-                                        <Settings className="mr-2 h-4 w-4"/>
+                                        <Settings className="mr-2 h-4 w-4" />
                                         对比配置
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator/>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuLabel>帮助</DropdownMenuLabel>
                                     <DropdownMenuItem asChild>
                                         <Link
                                             href="/about"
                                             className="flex items-center"
                                         >
-                                            <Info className="mr-2 h-4 w-4"/>
+                                            <Info className="mr-2 h-4 w-4" />
                                             关于
                                         </Link>
                                     </DropdownMenuItem>
@@ -1541,7 +1566,7 @@ export default function ChatPanelOptimized({
                                             setIsContactDialogOpen(true);
                                         }}
                                     >
-                                        <Handshake className="mr-2 h-4 w-4"/>
+                                        <Handshake className="mr-2 h-4 w-4" />
                                         交流联系
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -1554,7 +1579,7 @@ export default function ChatPanelOptimized({
                                     aria-label="收起聊天"
                                     title="收起聊天"
                                 >
-                                    <PanelRightClose className="h-4 w-4"/>
+                                    <PanelRightClose className="h-4 w-4" />
                                 </button>
                             )}
                         </div>
@@ -1589,9 +1614,9 @@ export default function ChatPanelOptimized({
                                     )}
                                 >
                                     {comparisonNotice.type === "success" ? (
-                                        <CheckCircle2 className="h-3.5 w-3.5"/>
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
                                     ) : (
-                                        <AlertCircle className="h-3.5 w-3.5"/>
+                                        <AlertCircle className="h-3.5 w-3.5" />
                                     )}
                                     <span className="leading-snug">
                                         {comparisonNotice.message}
@@ -1600,7 +1625,7 @@ export default function ChatPanelOptimized({
                             )}
                             <div
                                 className="py-2 flex-1 min-h-0 max-h-[65vh] overflow-y-auto overflow-x-hidden rounded-xl bg-white px-2.5"
-                                style={{maxHeight: '80vh'}}
+                                style={{ maxHeight: '80vh' }}
                             >
                                 <ChatMessageDisplay
                                     messages={messages}
@@ -1608,8 +1633,100 @@ export default function ChatPanelOptimized({
                                     setInput={setInput}
                                     setFiles={handleFileChange}
                                     activeBranchId={activeBranchId}
+                                    onStreamingApply={(content, callId, mode) => {
+                                        if (mode === "excalidraw" && renderMode === "excalidraw") {
+                                            // 流式渲染 Excalidraw JSON
+                                            try {
+                                                // 从 content 中提取 JSON（可能在代码块中）
+                                                let jsonContent = content.trim();
+                                                
+                                                // 如果在 markdown 代码块中，提取出来
+                                                const codeBlockMatch = jsonContent.match(/```(?:json)?\s*\n?([^\`]*?)(?:```|$)/i);
+                                                if (codeBlockMatch) {
+                                                    jsonContent = codeBlockMatch[1].trim();
+                                                }
+                                                
+                                                // 只处理看起来是 JSON 的内容
+                                                if (jsonContent.startsWith("{")) {
+                                                    const parsed = safeParsePartialJson(jsonContent);
+                                                    if (parsed) {
+                                                        // 放宽条件：只要能解析出对象就尝试渲染
+                                                        if (parsed.type === "excalidraw" || 
+                                                            (parsed.elements !== undefined)) {
+                                                            const jsonStr = JSON.stringify(parsed);
+                                                            loadExcalidraw(jsonStr);
+                                                        }
+                                                    }
+                                                }
+                                            } catch (e) {
+                                                console.warn("Excalidraw streaming parse error:", e);
+                                            }
+                                        } else if (mode === "drawio" && renderMode !== "svg" && renderMode !== "excalidraw") {
+                                            // Reuse existing drawio streaming logic via onDisplayDiagram-like path
+                                            // But since onStreamingApply is separate, we call the logic directly
+                                            try {
+                                                const safeRoot = convertToLegalXml(content);
+                                                const baseXml = getLatestDiagramXml() || EMPTY_MXFILE;
+                                                const merged = replaceNodes(baseXml, safeRoot);
+                                                if (merged && merged !== lastDrawioAppliedRef.current) {
+                                                    lastDrawioAppliedRef.current = merged;
+                                                    loadDiagramImmediate(merged);
+                                                }
+                                            } catch (e) { }
+                                        } else if (mode === "svg" && renderMode === "svg") {
+                                            queueStreamingSvgPreview(content);
+                                        }
+                                    }}
                                     onDisplayDiagram={async (xml, { isFinal, mode, toolCallId } = {}) => {
                                         const targetMode: DiagramRenderingMode = mode ?? (isSvgMode ? "svg" : "drawio");
+
+                                        // Excalidraw 模式处理
+                                        if (targetMode === "excalidraw") {
+                                            try {
+                                                // 从 xml 中提取 JSON（可能在代码块中）
+                                                let jsonContent = xml.trim();
+                                                
+                                                // 如果在 markdown 代码块中，提取出来
+                                                const codeBlockMatch = jsonContent.match(/```(?:json)?\s*\n?([^\`]*?)(?:```|$)/i);
+                                                if (codeBlockMatch) {
+                                                    jsonContent = codeBlockMatch[1].trim();
+                                                }
+                                                
+                                                // 只处理看起来是 JSON 的内容
+                                                if (jsonContent.startsWith("{")) {
+                                                    const parsed = isFinal 
+                                                        ? JSON.parse(jsonContent) 
+                                                        : safeParsePartialJson(jsonContent);
+                                                    
+                                                    if (parsed) {
+                                                        const excalidrawJson = JSON.stringify(parsed);
+                                                        
+                                                        // 流式更新时
+                                                        if (isFinal === false) {
+                                                            loadExcalidraw(excalidrawJson);
+                                                            return;
+                                                        }
+                                                        
+                                                        // 最终完成时
+                                                        loadExcalidraw(excalidrawJson);
+                                                        updateActiveBranchDiagram(excalidrawJson);
+                                                        
+                                                        // 保存到结果集
+                                                        const resultId = toolCallId || `excalidraw-${Date.now()}`;
+                                            diagramResultsRef.current.set(resultId, {
+                                                            xml: excalidrawJson,
+                                                            svg: "",
+                                                            mode: "excalidraw",
+                                                            runtime: selectedModel ?? undefined,
+                                                        });
+                                                        setDiagramResultVersion((prev) => prev + 1);
+                                                    }
+                                                }
+                                            } catch (e) {
+                                                console.warn("Excalidraw diagram apply failed:", e);
+                                            }
+                                            return;
+                                        }
 
                                         if (targetMode === "svg") {
                                             const fixed = repairSvg(xml);
@@ -1769,11 +1886,11 @@ export default function ChatPanelOptimized({
                                     const parts: Array<
                                         | { type: "text"; text: string; displayText?: string }
                                         | { type: "file"; url: string; mediaType: string }
-                                    > = [{type: "text", text: enrichedInput, displayText: input}];
+                                    > = [{ type: "text", text: enrichedInput, displayText: input }];
 
                                     if (files.length > 0) {
                                         const attachments = await serializeAttachments(files);
-                                        attachments.forEach(({url, mediaType}) => {
+                                        attachments.forEach(({ url, mediaType }) => {
                                             parts.push({
                                                 type: "file",
                                                 url,
@@ -1885,12 +2002,12 @@ export default function ChatPanelOptimized({
                             >
                                 {contactCopyState === "copied" ? (
                                     <>
-                                        <CheckCircle2 className="h-3.5 w-3.5"/>
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
                                         已复制
                                     </>
                                 ) : (
                                     <>
-                                        <Copy className="h-3.5 w-3.5"/>
+                                        <Copy className="h-3.5 w-3.5" />
                                         复制
                                     </>
                                 )}

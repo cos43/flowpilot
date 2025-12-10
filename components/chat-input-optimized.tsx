@@ -9,6 +9,7 @@ import { HistoryDialog } from "@/components/history-dialog";
 import { ModelSelector } from "@/components/model-selector";
 import { cn } from "@/lib/utils";
 import type { RuntimeModelOption } from "@/types/model-config";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 import { RenderModeToggle } from "@/components/render-mode-toggle";
 import { ComparisonQuickAccess } from "@/components/comparison-quick-access";
 
@@ -33,8 +34,8 @@ interface ChatInputOptimizedProps {
     interactionLocked?: boolean;
     // 流式配置回调
     onModelStreamingChange?: (modelKey: string, isStreaming: boolean) => void;
-    renderMode?: "drawio" | "svg";
-    onRenderModeChange?: (mode: "drawio" | "svg") => void;
+    renderMode?: DiagramRenderingMode;
+    onRenderModeChange?: (mode: DiagramRenderingMode) => void;
     comparisonEnabled?: boolean;
     onStop?: () => void;
     isBusy?: boolean;

@@ -19,6 +19,7 @@ import type { RuntimeModelOption } from "@/types/model-config";
 import { ModelSelector } from "@/components/model-selector";
 import { SlidePreviewModal } from "./slide-preview-modal";
 import { RenderModeToggle } from "@/components/render-mode-toggle";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 const LAYOUT_TONE_PRESETS = [
     {
@@ -53,8 +54,8 @@ interface SlideComposerProps {
     onModelChange: (key: string) => void;
     onManageModels: () => void;
     renderError?: string | null;
-    onRenderModeChange?: (mode: "drawio" | "svg") => void;
-    renderMode?: "drawio" | "svg";
+    onRenderModeChange?: (mode: DiagramRenderingMode) => void;
+    renderMode?: DiagramRenderingMode;
 }
 
 const STATUS_STYLES: Record<

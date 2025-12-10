@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import type { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 export interface ConversationHistoryItem {
   id: string;
@@ -6,7 +7,7 @@ export interface ConversationHistoryItem {
   messageCount: number;
   createdAt: number;
   updatedAt: number;
-  renderMode?: "drawio" | "svg";
+  renderMode?: DiagramRenderingMode;
   // 保存完整的消息数据（简化版本）
   messagesData?: any[];
   // 保存最后一次的图表状态
@@ -16,7 +17,7 @@ export interface ConversationHistoryItem {
     id: string;
     xml?: string;
     svg?: string;
-    mode: "drawio" | "svg";
+    mode: DiagramRenderingMode;
   }>;
 }
 
@@ -86,7 +87,7 @@ export function useConversationHistory() {
   // 保存当前对话
   const saveCurrentConversation = useCallback((
     messagesData: any[],
-    renderMode?: "drawio" | "svg",
+    renderMode?: DiagramRenderingMode,
     finalDiagramXml?: string,
     diagramResults?: Map<string, any>
   ) => {
@@ -100,7 +101,7 @@ export function useConversationHistory() {
       id: string;
       xml?: string;
       svg?: string;
-      mode: "drawio" | "svg";
+      mode: DiagramRenderingMode;
     }> = [];
 
     if (diagramResults) {

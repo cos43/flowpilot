@@ -23,6 +23,9 @@ interface DiagramContextType {
     fetchDiagramData: (options?: { saveHistory?: boolean }) => Promise<{ xml: string; svg: string }>;
     runtimeError: RuntimeErrorPayload | null;
     setRuntimeError: (error: RuntimeErrorPayload | null) => void;
+    excalidrawJson: string;
+    setExcalidrawJson: (json: string) => void;
+    loadExcalidraw: (json: string) => void;
 }
 
 const DiagramContext = createContext<DiagramContextType | undefined>(undefined);
@@ -42,6 +45,17 @@ export function DiagramProvider({ children }: { children: React.ReactNode }) {
     const [runtimeError, setRuntimeError] = useState<RuntimeErrorPayload | null>(
         null
     );
+
+    // Excalidraw State
+    const [excalidrawJson, setExcalidrawJson] = useState<string>("");
+
+    const loadExcalidraw = useCallback((json: string) => {
+        console.log("[DiagramContext] loadExcalidraw called with:", {
+            jsonLength: json.length,
+            preview: json.substring(0, 100)
+        });
+        setExcalidrawJson(json);
+    }, []);
 
     const handleExport = () => {
         if (drawioRef.current) {
@@ -185,6 +199,9 @@ export function DiagramProvider({ children }: { children: React.ReactNode }) {
                 fetchDiagramData,
                 runtimeError,
                 setRuntimeError,
+                excalidrawJson,
+                setExcalidrawJson,
+                loadExcalidraw,
             }}
         >
             {children}

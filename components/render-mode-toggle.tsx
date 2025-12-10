@@ -1,38 +1,43 @@
 "use client";
 
-import { Sparkles, Palette } from "lucide-react";
+import { Sparkles, Palette, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-type RenderMode = "drawio" | "svg";
+import { DiagramRenderingMode } from "@/features/chat-panel/types";
 
 interface RenderModeToggleProps {
-    value: RenderMode;
-    onChange?: (mode: RenderMode) => void;
+    value: DiagramRenderingMode;
+    onChange?: (mode: DiagramRenderingMode) => void;
     disabled?: boolean;
     className?: string;
     iconOnly?: boolean;
 }
 
 const MODES: Array<{
-    id: RenderMode;
+    id: DiagramRenderingMode;
     label: string;
     hint: string;
     Icon: typeof Sparkles;
 }> = [
-    {
-        id: "svg",
-        label: "SVG",
-        hint: "生成高保真 SVG 预览，适合直接插入文档或导出高清图",
-        Icon: Sparkles,
-    },
-    {
-        id: "drawio",
-        label: "draw.io",
-        hint: "生成可编辑的 draw.io 图，便于继续细调和二次修改",
-        Icon: Palette,
-    },
-];
+        {
+            id: "svg",
+            label: "SVG",
+            hint: "生成高保真 SVG 预览，适合直接插入文档或导出高清图",
+            Icon: Sparkles,
+        },
+        {
+            id: "drawio",
+            label: "draw.io",
+            hint: "生成可编辑的 draw.io 图，便于继续细调和二次修改",
+            Icon: Palette,
+        },
+        {
+            id: "excalidraw",
+            label: "Excalidraw",
+            hint: "手绘风格白板，适合快速构思和草图绘制",
+            Icon: PenTool,
+        },
+    ];
 
 export function RenderModeToggle({
     value,
