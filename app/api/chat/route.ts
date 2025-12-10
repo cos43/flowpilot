@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const abortSignal = req.signal;
 
     const drawioSystemMessage = `
-You are FlowPilot, a draw.io layout lead. Respond by streaming raw draw.io XML text (no tool calls) via the display_diagram tool.
+You are FlowPilot, a draw.io layout lead. Output exactly one complete draw.io XML as plain text (optionally in a fenced \`\`\`xml\`\`\` block). Do NOT use any tool calls.
 - Prefer small incremental patches as a WELL-FORMED <root>...</root> block.
 - Full snapshot is also ok: <mxGraphModel><root>...</root></mxGraphModel>.
 - NEVER emit partial/unclosed tags or prose.
@@ -540,95 +540,6 @@ Render mode: ${outputMode === "svg" ? "svg-only" : "drawio-xml"}`;
       // },
       messages: finalMessages,
       abortSignal: combinedAbortSignal,  // 使用组合的AbortSignal以支持取消请求和超时
-      ...(outputMode === "svg" || outputMode === "excalidraw"
-        ? {}
-        : {
-          tools: {
-            // Client-side tool that will be executed on the client
-            display_diagram: {
-              description: `Display a diagram on draw.io. You only need to pass the nodes inside the <root> tag (including the <root> tag itself) in the XML string.
-          
-          **CRITICAL XML SYNTAX REQUIREMENTS:**
-          
-          1. **Mandatory Root Structure:**
-          <root>
-            <mxCell id="0"/>
-            <mxCell id="1" parent="0"/>
-            <!-- Your diagram elements here -->
-          </root>
-          
-          2. **ALWAYS Escape Special Characters in Attributes:**
-          - & → &amp;
-          - < → &lt;
-          - > → &gt;
-          - " → &quot;
-          
-          3. **Style Format (STRICT):**
-          - Must end with semicolon
-          - No spaces around = sign
-          - Example: style="rounded=1;fillColor=#fff;strokeColor=#000;"
-          
-          4. **Required Attributes:**
-          - Every mxCell: id, parent (except id="0")
-          - Every mxGeometry: as="geometry"
-          - Self-closing tags: space before />
-          
-          5. **Complete Element Example:**
-          <mxCell id="2" value="My Node" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-            <mxGeometry x="100" y="100" width="120" height="60" as="geometry" />
-          </mxCell>
-          
-          6. **Edge (Connection) Example:**
-          <mxCell id="5" value="" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="2" target="3">
-            <mxGeometry relative="1" as="geometry" />
-          </mxCell>
-          
-          **Common Errors to AVOID:**
-          ❌ <mxCell value="Users & Admins"/>  → Use &amp;
-          ❌ <mxCell value="x < 10"/>  → Use &lt;
-          ❌ style="rounded=1"  → Missing final semicolon
-          ❌ <mxGeometry x="10" y="20"/>  → Missing as="geometry"
-          ❌ <mxCell id="2" vertex="1" parent="1"/>  → Missing <mxGeometry>
-          
-          **Validation Checklist:**
-          ✓ Root cells (id="0" and id="1") present
-          ✓ All special characters escaped
-          ✓ All styles end with semicolon
-          ✓ All IDs unique
-          ✓ All elements have parent (except id="0")
-          ✓ All mxGeometry have as="geometry"
-          ✓ All tags properly closed
-          
-          **Using Professional Icons:**
-          - For AWS services, use AWS 2025 icons: shape=mxgraph.aws4.[category].[service]
-          - For Azure services, use Azure icons: shape=mxgraph.azure.[category].[service]
-          - For GCP services, use GCP icons: shape=mxgraph.gcp2017.[category].[service]
-          - These icons make diagrams more professional and vivid
-          
-          **IMPORTANT:** The diagram will be rendered to draw.io canvas in REAL-TIME as you stream the XML. The canvas updates automatically during streaming to show live progress.
-          `,
-              inputSchema: z.object({
-                xml: z.string().describe(
-                  "Well-formed XML string following all syntax rules above to be displayed on draw.io"
-                )
-              })
-            },
-            edit_diagram: {
-              description: `Edit specific parts of the current diagram by replacing exact line matches. Use this tool to make targeted fixes without regenerating the entire XML.
-IMPORTANT: Keep edits concise:
-- Only include the lines that are changing, plus 1-2 surrounding lines for context if needed
-- Break large changes into multiple smaller edits
-- Each search must contain complete lines (never truncate mid-line)
-- First match only - be specific enough to target the right element`,
-              inputSchema: z.object({
-                edits: z.array(z.object({
-                  search: z.string().describe("Exact lines to search for (including whitespace and indentation)"),
-                  replace: z.string().describe("Replacement lines")
-                })).describe("Array of search/replace pairs to apply sequentially")
-              })
-            },
-          },
-        }),
       temperature: 0,
     };
 
