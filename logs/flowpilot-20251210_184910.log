@@ -1,0 +1,9 @@
+ ⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use 0.0.0.0:6001
+    at <unknown> (Error: listen EADDRINUSE: address already in use 0.0.0.0:6001) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 6001
+}

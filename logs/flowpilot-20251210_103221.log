@@ -1,0 +1,205 @@
+   ▲ Next.js 15.2.3
+   - Local:        http://localhost:6001
+   - Network:      http://0.0.0.0:6001
+
+ ✓ Starting...
+ ✓ Ready in 852ms
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'drawio'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'drawio'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'drawio'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Error in chat route: ResponseAborted: 
+    at async d (.next/server/app/api/chat/route.js:48:2019)
+Error details: {
+  errorMessage: '',
+  errorDetails: 'ResponseAborted: \n' +
+    '    at Object.fetch (node:internal/deps/undici/undici:11360:11)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async d (/root/flowpilot/.next/server/app/api/chat/route.js:48:2019)\n' +
+    '    at async to.do (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:18:18605)\n' +
+    '    at async to.handle (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:18:23632)\n' +
+    '    at async doRender (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/server/base-server.js:1513:42)\n' +
+    '    at async NextNodeServer.renderToResponseWithComponentsImpl (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/server/base-server.js:1915:28)\n' +
+    '    at async NextNodeServer.renderPageComponent (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/server/base-server.js:2393:24)\n' +
+    '    at async NextNodeServer.renderToResponseImpl (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/server/base-server.js:2430:32)\n' +
+    '    at async NextNodeServer.pipeImpl (/root/flowpilot/node_modules/.pnpm/next@15.2.3_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_babel-plugin-react-compile_814f9399c7fbbf0530716433b393b6d4/node_modules/next/dist/server/base-server.js:1003:25)'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'excalidraw'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'excalidraw'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'excalidraw'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object], [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Linkflow request failed: {
+  status: 400,
+  json: {
+    error: {
+      message: 'Could not process image (request id: 2025121010420168164104803Be9F0z)',
+      type: '<nil>',
+      param: '',
+      code: null
+    }
+  }
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'excalidraw'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'excalidraw'
+}
+Linkflow stream parse error: [ResponseAborted: ]
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Enhanced messages: [
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] },
+  { role: 'assistant', content: [ [Object] ] },
+  { role: 'user', content: [ [Object] ] }
+] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'drawio'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'svg'
+}
+Enhanced messages: [ { role: 'user', content: [ [Object] ] } ] model: claude-sonnet-4-5-20250929
+Model runtime config: {
+  baseUrl: 'https://www.linkflow.run/v1',
+  modelId: 'claude-sonnet-4-5-20250929',
+  hasApiKey: true,
+  enableStreaming: true,
+  renderMode: 'drawio'
+}
