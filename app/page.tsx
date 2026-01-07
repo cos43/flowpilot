@@ -268,6 +268,11 @@ export default function Home() {
                                         <div className="text-center">
                                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                                             <p className="text-gray-600">{t("drawio.loadingEditor")}</p>
+                                            {drawioBaseUrl.includes("drawio/index.html") && (
+                                                <p className="text-xs text-green-600 mt-2 font-medium">
+                                                    Running Locally: {drawioBaseUrl.split("/drawio")[0]}...
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
