@@ -262,102 +262,103 @@ export default function Home() {
                                 </div>
                             </div>
                         ) : (
-                            { isDrawioLoading && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
-                                    <div className="text-center">
-                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                                        <p className="text-gray-600">{t("drawio.loadingEditor")}</p>
+                            <>
+                                {isDrawioLoading && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
+                                        <div className="text-center">
+                                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                            <p className="text-gray-600">{t("drawio.loadingEditor")}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                    {drawioBaseUrl.startsWith("http") && (
-                        <DrawIoEmbed
-                            ref={drawioRef}
-                            baseUrl={drawioBaseUrl}
-                            onExport={handleDiagramExport}
-                            onLoad={handleDrawioLoad}
-                            urlParameters={{
-                                spin: true,
-                                libraries: false,
-                                saveAndExit: false,
-                                noExitBtn: true,
-                            }}
-                        />
-                    )}
-                </>
-                )
-                ) : renderMode === "excalidraw" ? (
-                <div className="h-full w-full bg-white">
-                    <ExcalidrawEditor
-                        initialData={(() => {
-                            if (!excalidrawJson) {
-                                console.log("[Page] No excalidrawJson, using undefined");
-                                return undefined;
-                            }
-                            try {
-                                const parsed = JSON.parse(excalidrawJson);
-                                console.log("[Page] Passing initialData to ExcalidrawEditor:", {
-                                    elementsCount: parsed.elements?.length,
-                                    hasAppState: !!parsed.appState
-                                });
-                                return parsed;
-                            } catch (e) {
-                                console.error("[Page] Failed to parse excalidrawJson:", e);
-                                return undefined;
-                            }
-                        })()}
-                        onChange={(elements, appState) => {
-                            // 只在用户实际编辑时保存，避免循环更新
-                            const newJson = JSON.stringify({ elements, appState });
+                                )}
+                                {drawioBaseUrl.startsWith("http") && (
+                                    <DrawIoEmbed
+                                        ref={drawioRef}
+                                        baseUrl={drawioBaseUrl}
+                                        onExport={handleDiagramExport}
+                                        onLoad={handleDrawioLoad}
+                                        urlParameters={{
+                                            spin: true,
+                                            libraries: false,
+                                            saveAndExit: false,
+                                            noExitBtn: true,
+                                        }}
+                                    />
+                                )}
+                            </>
+                        )
+                    ) : renderMode === "excalidraw" ? (
+                        <div className="h-full w-full bg-white">
+                            <ExcalidrawEditor
+                                initialData={(() => {
+                                    if (!excalidrawJson) {
+                                        console.log("[Page] No excalidrawJson, using undefined");
+                                        return undefined;
+                                    }
+                                    try {
+                                        const parsed = JSON.parse(excalidrawJson);
+                                        console.log("[Page] Passing initialData to ExcalidrawEditor:", {
+                                            elementsCount: parsed.elements?.length,
+                                            hasAppState: !!parsed.appState
+                                        });
+                                        return parsed;
+                                    } catch (e) {
+                                        console.error("[Page] Failed to parse excalidrawJson:", e);
+                                        return undefined;
+                                    }
+                                })()}
+                                onChange={(elements, appState) => {
+                                    // 只在用户实际编辑时保存，避免循环更新
+                                    const newJson = JSON.stringify({ elements, appState });
 
-                            // 避免不必要的状态更新
-                            if (newJson !== excalidrawJson) {
-                                console.log("[Page] Excalidraw onChange - saving:", {
-                                    elementsCount: elements.length,
-                                    jsonLength: newJson.length
-                                });
-                                setExcalidrawJson(newJson);
-                            } else {
-                                console.log("[Page] Excalidraw onChange - no change, skipping save");
-                            }
-                        }}
+                                    // 避免不必要的状态更新
+                                    if (newJson !== excalidrawJson) {
+                                        console.log("[Page] Excalidraw onChange - saving:", {
+                                            elementsCount: elements.length,
+                                            jsonLength: newJson.length
+                                        });
+                                        setExcalidrawJson(newJson);
+                                    } else {
+                                        console.log("[Page] Excalidraw onChange - no change, skipping save");
+                                    }
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <SvgPreviewPane />
+                    )}
+                </div>
+                {/* 分隔器 - 始终渲染但只在可见时显示 */}
+                <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    onPointerDown={handleResizeChatStart}
+                    className={cn(
+                        "h-full items-center justify-center border-x border-slate-100 bg-white/60 transition hover:bg-slate-100 active:bg-slate-200 cursor-col-resize",
+                        isChatVisible ? "flex" : "hidden",
+                        isResizingChat && "bg-blue-50 border-blue-200"
+                    )}
+                    style={{ width: isChatVisible ? RESIZER_WIDTH : 0 }}
+                >
+                    <div className="h-10 w-1 rounded-full bg-slate-300" />
+                </div>
+                {/* Chat Panel - 始终渲染，通过位置控制显示 */}
+                <div
+                    className={cn(
+                        "h-full min-h-0 p-1 transition-all duration-300",
+                        isChatVisible
+                            ? "opacity-100"
+                            : "opacity-0 pointer-events-none"
+                    )}
+                >
+                    <ChatPanelOptimized
+                        onCollapse={() => setIsChatVisible(false)}
+                        isCollapsible
+                        renderMode={renderMode}
+                        onRenderModeChange={setRenderMode}
                     />
                 </div>
-                ) : (
-                <SvgPreviewPane />
-                    )}
             </div>
-            {/* 分隔器 - 始终渲染但只在可见时显示 */}
-            <div
-                role="separator"
-                aria-orientation="vertical"
-                onPointerDown={handleResizeChatStart}
-                className={cn(
-                    "h-full items-center justify-center border-x border-slate-100 bg-white/60 transition hover:bg-slate-100 active:bg-slate-200 cursor-col-resize",
-                    isChatVisible ? "flex" : "hidden",
-                    isResizingChat && "bg-blue-50 border-blue-200"
-                )}
-                style={{ width: isChatVisible ? RESIZER_WIDTH : 0 }}
-            >
-                <div className="h-10 w-1 rounded-full bg-slate-300" />
-            </div>
-            {/* Chat Panel - 始终渲染，通过位置控制显示 */}
-            <div
-                className={cn(
-                    "h-full min-h-0 p-1 transition-all duration-300",
-                    isChatVisible
-                        ? "opacity-100"
-                        : "opacity-0 pointer-events-none"
-                )}
-            >
-                <ChatPanelOptimized
-                    onCollapse={() => setIsChatVisible(false)}
-                    isCollapsible
-                    renderMode={renderMode}
-                    onRenderModeChange={setRenderMode}
-                />
-            </div>
-        </div>
         </section >
     );
 
