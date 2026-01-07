@@ -64,18 +64,35 @@ const DEFAULT_TIMEOUT = 15000; // 15秒
  */
 export function useDrawioFallback(options: UseDrawioFallbackOptions = {}): UseDrawioFallbackReturn {
     const {
-        primaryUrl = process.env.NEXT_PUBLIC_DRAWIO_BASE_URL || DEFAULT_PRIMARY_URL,
+        primaryUrl: initialPrimaryUrl = process.env.NEXT_PUBLIC_DRAWIO_BASE_URL || DEFAULT_PRIMARY_URL,
         fallbackUrl = DEFAULT_FALLBACK_URL,
         timeout = DEFAULT_TIMEOUT,
         enableFallback = true,
         onFallback,
     } = options;
 
+    const [primaryUrl, setPrimaryUrl] = useState(initialPrimaryUrl);
+
+    // State definitions
     const [currentUrl, setCurrentUrl] = useState(primaryUrl);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isFallback, setIsFallback] = useState(false);
     const [hasAttemptedFallback, setHasAttemptedFallback] = useState(false);
+
+    // Effect to handle relative URLs for primaryUrl
+    useEffect(() => {
+        if (initialPrimaryUrl.startsWith("/")) {
+            setPrimaryUrl(window.location.origin + initialPrimaryUrl);
+        }
+    }, [initialPrimaryUrl]);
+
+    // Update currentUrl when primaryUrl is resolved
+    useEffect(() => {
+        if (!isFallback) {
+            setCurrentUrl(primaryUrl);
+        }
+    }, [primaryUrl, isFallback]);
 
     // 触发降级逻辑
     const triggerFallback = useCallback(() => {
@@ -86,13 +103,13 @@ export function useDrawioFallback(options: UseDrawioFallbackOptions = {}): UseDr
         }
 
         console.warn(`[DrawIO Fallback] 主URL加载失败: ${primaryUrl}，切换到备用URL: ${fallbackUrl}`);
-        
+
         setCurrentUrl(fallbackUrl);
         setIsFallback(true);
         setHasAttemptedFallback(true);
         setError(null);
         setIsLoading(true);
-        
+
         // 触发回调
         onFallback?.(primaryUrl, fallbackUrl);
     }, [enableFallback, hasAttemptedFallback, primaryUrl, fallbackUrl, onFallback]);
@@ -106,7 +123,7 @@ export function useDrawioFallback(options: UseDrawioFallbackOptions = {}): UseDr
         const timer = setTimeout(() => {
             if (isLoading) {
                 console.error(`[DrawIO Fallback] 加载超时 (${timeout}ms): ${currentUrl}`);
-                
+
                 if (!isFallback && enableFallback) {
                     triggerFallback();
                 } else {
@@ -130,7 +147,7 @@ export function useDrawioFallback(options: UseDrawioFallbackOptions = {}): UseDr
     const handleError = useCallback((errorMessage?: string) => {
         const message = errorMessage || `加载 DrawIO 失败: ${currentUrl}`;
         console.error(`[DrawIO Fallback] ${message}`);
-        
+
         if (!isFallback && enableFallback) {
             triggerFallback();
         } else {

@@ -29,7 +29,18 @@ export default function Home() {
     // 如果 embed.diagrams.net 无法访问，可以尝试：
     // - https://app.diagrams.net (官方备用地址)
     // - 或者使用本地部署的 draw.io
-    const drawioBaseUrl = process.env.NEXT_PUBLIC_DRAWIO_BASE_URL||"https://embed.diagrams.net";
+    // 可配置的 DrawIO baseUrl，支持环境变量或使用默认值
+    // 如果 embed.diagrams.net 无法访问，可以尝试：
+    // - https://app.diagrams.net (官方备用地址)
+    // - 或者使用本地部署的 draw.io
+    const rawDrawioBaseUrl = process.env.NEXT_PUBLIC_DRAWIO_BASE_URL || "https://embed.diagrams.net";
+    const [drawioBaseUrl, setDrawioBaseUrl] = useState(rawDrawioBaseUrl);
+
+    useEffect(() => {
+        if (rawDrawioBaseUrl.startsWith("/")) {
+            setDrawioBaseUrl(window.location.origin + rawDrawioBaseUrl);
+        }
+    }, [rawDrawioBaseUrl]);
 
     useDrawioDiagnostics({
         baseUrl: drawioBaseUrl,
@@ -297,7 +308,7 @@ export default function Home() {
                                 onChange={(elements, appState) => {
                                     // 只在用户实际编辑时保存，避免循环更新
                                     const newJson = JSON.stringify({ elements, appState });
-                                    
+
                                     // 避免不必要的状态更新
                                     if (newJson !== excalidrawJson) {
                                         console.log("[Page] Excalidraw onChange - saving:", {
