@@ -7,13 +7,16 @@ dist-ssr
 .eslintcache
 report.html
 vite.config.*.timestamp*
-public
+
 
 # Environment variables
 .env
 .env.local
 .env.production
 .env.development
+
+# External assets
+public/drawio
 
 yarn.lock
 npm-debug.log*
