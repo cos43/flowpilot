@@ -41,7 +41,6 @@ export const zhTranslations = {
   // 导航
   nav: {
     workspace: "画图工作室",
-    pptStudio: "PPT 工作室",
     multimodalLab: "FlowPilot 多模态实验室",
   },
 
@@ -291,62 +290,6 @@ export const zhTranslations = {
     help: "帮助",
   },
 
-  // PPT Studio
-  ppt: {
-    title: "PPT 工作室",
-    createPresentation: "创建演示文稿",
-    editPresentation: "编辑演示文稿",
-    previewPresentation: "预览演示文稿",
-    exportPresentation: "导出演示文稿",
-    slideCount: "幻灯片数",
-    currentSlide: "当前幻灯片",
-    addSlide: "添加幻灯片",
-    deleteSlide: "删除幻灯片",
-    duplicateSlide: "复制幻灯片",
-    moveSlideUp: "上移幻灯片",
-    moveSlideDown: "下移幻灯片",
-    slideTitle: "幻灯片标题",
-    slideContent: "幻灯片内容",
-    slideLayout: "幻灯片布局",
-    slideTheme: "幻灯片主题",
-    slideTransition: "幻灯片过渡",
-    slideAnimation: "幻灯片动画",
-    speakerNotes: "演讲备注",
-    generatingSlide: "生成幻灯片中...",
-    slideGenerated: "幻灯片生成完成",
-    slideFailed: "幻灯片生成失败",
-  },
-
-  // Brief Form (PPT)
-  briefForm: {
-    title: "演示简报配置",
-    topic: "主题",
-    topicPlaceholder: "输入演示主题...",
-    audience: "目标受众",
-    audiencePlaceholder: "输入目标受众...",
-    duration: "时长",
-    durationPlaceholder: "选择演示时长",
-    style: "风格",
-    stylePlaceholder: "选择演示风格",
-    outline: "大纲",
-    outlinePlaceholder: "输入演示大纲...",
-    generateOutline: "生成大纲",
-    reviewOutline: "审阅大纲",
-    approveOutline: "批准大纲",
-    editOutline: "编辑大纲",
-  },
-
-  // Stepper (PPT)
-  stepper: {
-    step1: "配置简报",
-    step2: "生成大纲",
-    step3: "生成幻灯片",
-    step4: "预览和导出",
-    currentStep: "当前步骤",
-    goToStep: "前往步骤",
-    nextStep: "下一步",
-    previousStep: "上一步",
-  },
 
   // 文件操作
   file: {
@@ -547,7 +490,6 @@ export const enTranslations = {
   // Navigation
   nav: {
     workspace: "Workspace",
-    pptStudio: "PPT Studio",
     multimodalLab: "FlowPilot Multimodal Lab",
   },
 
@@ -797,62 +739,6 @@ export const enTranslations = {
     help: "Help",
   },
 
-  // PPT Studio
-  ppt: {
-    title: "PPT Studio",
-    createPresentation: "Create Presentation",
-    editPresentation: "Edit Presentation",
-    previewPresentation: "Preview Presentation",
-    exportPresentation: "Export Presentation",
-    slideCount: "Slide Count",
-    currentSlide: "Current Slide",
-    addSlide: "Add Slide",
-    deleteSlide: "Delete Slide",
-    duplicateSlide: "Duplicate Slide",
-    moveSlideUp: "Move Slide Up",
-    moveSlideDown: "Move Slide Down",
-    slideTitle: "Slide Title",
-    slideContent: "Slide Content",
-    slideLayout: "Slide Layout",
-    slideTheme: "Slide Theme",
-    slideTransition: "Slide Transition",
-    slideAnimation: "Slide Animation",
-    speakerNotes: "Speaker Notes",
-    generatingSlide: "Generating slide...",
-    slideGenerated: "Slide generated successfully",
-    slideFailed: "Slide generation failed",
-  },
-
-  // Brief Form (PPT)
-  briefForm: {
-    title: "Presentation Brief Configuration",
-    topic: "Topic",
-    topicPlaceholder: "Enter presentation topic...",
-    audience: "Target Audience",
-    audiencePlaceholder: "Enter target audience...",
-    duration: "Duration",
-    durationPlaceholder: "Select presentation duration",
-    style: "Style",
-    stylePlaceholder: "Select presentation style",
-    outline: "Outline",
-    outlinePlaceholder: "Enter presentation outline...",
-    generateOutline: "Generate Outline",
-    reviewOutline: "Review Outline",
-    approveOutline: "Approve Outline",
-    editOutline: "Edit Outline",
-  },
-
-  // Stepper (PPT)
-  stepper: {
-    step1: "Configure Brief",
-    step2: "Generate Outline",
-    step3: "Generate Slides",
-    step4: "Preview and Export",
-    currentStep: "Current Step",
-    goToStep: "Go to Step",
-    nextStep: "Next Step",
-    previousStep: "Previous Step",
-  },
 
   // File Operations
   file: {

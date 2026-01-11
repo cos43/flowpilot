@@ -32,10 +32,7 @@
 5. **components/chat-panel-optimized.tsx** - 主界面
    - 获取并传递 `userEndpoints`
 
-6. **app/ppt/page.tsx** - PPT 界面
-   - 获取并传递 `userEndpoints`
-
-7. **components/model-selector.tsx** - 选择器
+6. **components/model-selector.tsx** - 选择器
    - 添加环境变量模型视觉标识
    - 禁用环境变量模型的配置修改
 

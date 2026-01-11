@@ -1,6 +1,0 @@
-
-> flowpilot@1.0.0 start /root/flowpilot
-> next start --port 6001 -- --hostname VM-0-17-ubuntu --port 6001
-
-Invalid project directory provided, no such directory: /root/flowpilot/--hostname
- ELIFECYCLE  Command failed with exit code 1.

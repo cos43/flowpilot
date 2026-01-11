@@ -37,10 +37,6 @@
 - 从 `useModelRegistry` 获取 `userEndpoints`
 - 传递 `userEndpoints` 给 `ModelConfigDialog`
 
-#### `app/ppt/page.tsx`
-- 从 `useModelRegistry` 获取 `userEndpoints`
-- 传递 `userEndpoints` 给 `ModelConfigDialog`
-
 #### `components/model-config-dialog.tsx`
 - 接收 `userEndpoints` 而非 `endpoints`
 - 配置界面只显示用户配置的端点

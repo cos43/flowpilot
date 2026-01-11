@@ -27,7 +27,6 @@
 - ⚙️ **Customizable Styles**: Configure drawing preferences once (sketch/formal/draft), apply globally
 - 🔄 **Multi-Model Comparison**: Compare up to 5 LLMs in parallel, pick the best result
 - 🌐 **Multi-Language Support**: Built-in internationalization with English and Chinese
-- 🎭 **PPT Generator (Beta)**: Experimental feature for PowerPoint presentation generation
 
 ## 📸 Screenshots & Examples
 
@@ -76,14 +75,6 @@
 > Easily configure custom API endpoints and models
 
 ![Model Configuration](./public/image14.png)
-
-### Feature 6: PPT Generator (Beta)
-
-> Experimental feature: Generate PowerPoint presentations with AI
-
-| PPT Input                          | Generated Slides                    |
-|------------------------------------|-------------------------------------|
-| ![PPT Input](./public/image15.png) | ![PPT Output](./public/image16.png) |
 
 ### Real-World Diagram Examples
 
@@ -230,7 +221,6 @@ FlowPilot natively supports multiple LLM providers:
 
 - [Architecture Guide](./docs/architecture.md) - System architecture and design decisions
 - [i18n Guide](./docs/i18n-guide.md) - Multi-language implementation
-- [PPT Studio](./docs/ppt-studio.md) - PowerPoint generation feature (Beta)
 
 ## 🎨 FlowPilot Brief Configuration
 

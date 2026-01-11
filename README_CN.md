@@ -27,7 +27,6 @@
 - ⚙️ **风格可控**: 一次配置画图偏好（手绘/正式/草稿），全局生效
 - 🔄 **多模型对比**: 最多 5 个大模型并发生成，挑选最优结果
 - 🌐 **多语言支持**: 内置中英文国际化支持
-- 🎭 **PPT 生成器（测试版）**: 实验性功能，可生成 PowerPoint 演示文稿
 
 ## 📸 效果展示
 
@@ -75,14 +74,6 @@
 > 轻松配置自定义 API 端点和模型
 
 ![模型配置](./public/image14.png)
-
-### 功能 6：PPT 生成器（Beta）
-
-> 实验性功能：使用 AI 生成 PowerPoint 演示文稿
-
-| PPT 输入 | 生成的幻灯片 |
-|---------|-------------|
-| ![PPT 输入](./public/image15.png) | ![PPT 输出](./public/image16.png) |
 
 ### 实际生成案例展示
 
@@ -229,7 +220,6 @@ FlowPilot 原生支持多个大模型服务商：
 
 - [架构指南](./docs/architecture.md) - 系统架构和设计决策
 - [国际化指南](./docs/i18n-guide.md) - 多语言实现说明
-- [PPT Studio](./docs/ppt-studio.md) - PowerPoint 生成功能（测试版）
 
 ## 🎨 FlowPilot Brief 提示词说明
 
